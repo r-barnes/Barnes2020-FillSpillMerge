@@ -1,4 +1,4 @@
-#include "dephier_b.hpp"
+#include "dephier.hpp"
 #include "DisjointDenseIntSet.hpp"
 #include "../common/netcdf.hpp"
 #include <algorithm>
