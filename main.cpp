@@ -1,6 +1,6 @@
 #include "dephier_b.hpp"
 #include "DisjointDenseIntSet.hpp"
-#include "netcdf.hpp"
+#include "../common/netcdf.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cmath>

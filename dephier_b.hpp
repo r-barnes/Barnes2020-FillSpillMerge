@@ -12,7 +12,7 @@
 #include <richdem/common/timer.hpp>
 #include <richdem/common/ProgressBar.hpp>
 #include "DisjointDenseIntSet.hpp"
-#include "netcdf.hpp"
+#include "../common/netcdf.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cmath>
