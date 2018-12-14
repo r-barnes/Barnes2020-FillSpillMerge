@@ -32,6 +32,9 @@ const int neighbours         = 8;
 
 const double FP_ERROR = 1e-4;
 
+const float  OCEAN_LEVEL = 0;  //ocean_level in the topo file must be lower than any non-ocean cell. 
+
+
 rd::Array2D<flowdir_t> flowdirs; //TODO: Make non-global
 
 template<class elev_t>
@@ -131,8 +134,6 @@ void SurfaceWater(
   }
   progress.stop();
 
-  std::cerr<<"m Found pit cells = "<<pit_cells_found<<std::endl;
-  std::cerr<<"m Cells traversed = "<<cells_traversed<<std::endl;
   std::cerr<<"t Moving water downill = "<<timer.stop()<<" s"<<std::endl;
 }
 
@@ -489,12 +490,8 @@ void Fill_Water(
     //into the pit cell. Since we may already have filled other depressions
     //their cells are allowed to have wtd>0. Thus, we raise a warning if we are
     //looking at a cell in this unfilled depression with wtd>0.
-    if(stdi.my_labels.count(label(c.x,c.y))==1 && wtd(c.x,c.y)>0){
-      PrintDEM("Flowdirs", flowdirs, 9);
-      PrintDEM("wtd", wtd, 9);
-      PrintDEM("Labels", label, 9);
+    if(stdi.my_labels.count(label(c.x,c.y))==1 && wtd(c.x,c.y)>0)
       throw std::runtime_error("A cell was discovered in an unfilled depression with wtd>0!");
-    }
 
     //There are two possibilities:
     //1. The virtual water level exceeds slightly the height of the cell. The cell's water table then fills up as much as it can.
@@ -507,17 +504,6 @@ void Fill_Water(
       //The current scope of the depression plus the water storage capacity of
       //this cell is sufficient to store all of the water. We'll stop adding
       //cells and fill things now.
-      const auto my_elev = topo(c.x,c.y);
-
-      // std::cerr<<"Attempting to fill depression..."<<std::endl;
-      // std::cerr<<"\tLabel of last cell       = "<<label(c.x,c.y)       <<std::endl;
-      // std::cerr<<"\tWater volume             = "<<water_vol       <<std::endl;
-      // std::cerr<<"\tDepression volume        = "<<deps.at(stdi.top_label).dep_vol         <<std::endl;
-      // std::cerr<<"\tDepression number        = "<<stdi.leaf_label       <<std::endl;
-      // std::cerr<<"\tCurrent volume           = "<<current_volume       <<std::endl;
-      // std::cerr<<"\tTotal elevation          = "<<total_elevation      <<std::endl;
-      // std::cerr<<"\tCurrent elevation        = "<<my_elev              <<std::endl;
-      // std::cerr<<"\tNumber of cells affected = "<<cells_affected.size()<<std::endl;  
 
       //We will fill the depression so that the surface of the water is at this
       //elevation.
