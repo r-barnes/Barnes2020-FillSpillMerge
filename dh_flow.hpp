@@ -1,3 +1,6 @@
+#ifndef _df_flow_hpp_
+#define _df_flow_hpp_
+
 #include "dephier.hpp"
 #include "DisjointDenseIntSet.hpp"
 #include "../common/netcdf.hpp"
@@ -753,5 +756,4 @@ SubtreeDepressionInfo Find_filled(
   //of the depression's children and, if `water_vol<dep_vol` should not exceed
   //the `out_elev` of the depression itself.
 
-
-
+#endif
