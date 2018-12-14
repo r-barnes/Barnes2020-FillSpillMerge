@@ -31,7 +31,6 @@ const double FP_ERROR = 1e-4;
 
 rd::Array2D<flowdir_t> flowdirs; //TODO: Make non-global
 
-//Richard: Checked this
 template<class elev_t>
 void SurfaceWater(
   const rd::Array2D<elev_t>    &topo,
@@ -64,22 +63,6 @@ void SurfaceWater(
       dependencies(x,y)++;            //Increment my dependencies
   }
 
-  int pit_cell_count = 0;
-  int peak_count     = 0;
-  int flat_count     = 0;
-  for(unsigned int i=0;i<flowdirs.size();i++){
-    if(dependencies(i)!=0 && flowdirs(i)==NO_FLOW)
-      pit_cell_count++;
-    if(dependencies(i)==0 && flowdirs(i)!=NO_FLOW)
-      peak_count++;
-    if(dependencies(i)==0 && flowdirs(i)==NO_FLOW)
-      flat_count++;
-  }
-  std::cerr<<"Found "<<pit_cell_count<<" pit cells."<<std::endl;
-  std::cerr<<"Found "<<peak_count    <<" peak cells."<<std::endl;
-  std::cerr<<"Found "<<flat_count    <<" flat cells."<<std::endl;
-
-
   //Find the peaks. These are the cells into which no other cells pass flow (i.e. 0 dependencies). We
   //know the flow accumulation of the peaks without having to perform any
   //recursive calculations; they just pass flow downstream. From the peaks, we
@@ -91,9 +74,6 @@ void SurfaceWater(
       q.emplace(i);       
   }  //Yes.
 
-  int pit_cells_found = 0; //TODO: For debugging
-  int cells_traversed = 0; //TODO: For debugging
-
   //Starting with the peaks, pass flow downstream
   progress.start(topo.size());
   while(!q.empty()){
@@ -102,15 +82,11 @@ void SurfaceWater(
     const auto c = q.front();          //Copy focal cell from queue
     q.pop();                           //Clear focal cell from queue
 
-    cells_traversed++; //TODO: For debugging
-
     //Coordinates of downstream neighbour, if any
     const auto ndir = flowdirs(c); 
 
     int n = NO_FLOW;
-    if(ndir==NO_FLOW){ //TODO: For debugging
-      pit_cells_found++;
-    } else { //TODO: Fix this monkey patching
+    if(ndir!=NO_FLOW){  //TODO: Fix this monkey patching
       int x,y;
       topo.iToxy(c,x,y);
       const int nx = x+dx[ndir];
@@ -469,9 +445,6 @@ void Fill_Water(
     visited(pit_cell) = true;//label(pit_cell);         // show that we have already added this cell to those that have water. We need a better way to do this. 
   }
 
-  double current_volume;              //TODO: This is out here for debugging purposes. SHould be moved inside pq
-  GridCellZk_high<elev_t> c(0,0,0,0); //TODO: Out for debugging should be in pq
-
   //Cells whose wtd will be affected as we spread water around
   std::vector<int> cells_affected;
 
@@ -485,7 +458,7 @@ void Fill_Water(
   //"only" to the meta-depression.
 
   while(!flood_q.empty()){
-    c = flood_q.top(); //TODO local var
+    const auto c = flood_q.top();
     flood_q.pop();
 
     //We keep track of the current volume of the depression by noting the total
@@ -502,7 +475,7 @@ void Fill_Water(
     //Current volume of this subset of the metadepression. Since we might climb
     //over a saddle point, this value can occasionally be negative. It will be
     //positive by the time we need to spread the water around.
-    current_volume = cells_affected.size()*topo(c.x,c.y) - total_elevation; //TODO: Local var
+    const double current_volume = cells_affected.size()*topo(c.x,c.y) - total_elevation; //TODO: Local var
 
     //TODO: If this is false by a small margin, then it's a floating point issue
     //and this should be adjusted to be >=-1e-6 and water_vol should be made 0
@@ -659,30 +632,9 @@ void Fill_Water(
   //Therefore, if we've reached this point, something has gone horribly wrong
   //somewhere. :-(
 
-  // std::cerr<<"PQ loop exited without filling a depression!"<<std::endl;
-  
-  // std::cerr<<"Allowed labels = ";
-  // for(auto x:stdi.my_labels)
-  //   std::cerr<<x<<" ";
-  // std::cerr<<std::endl;
-
-  std::cerr<<"\tLabel of last cell       = "<<label(c.x,c.y)       <<std::endl;
-  std::cerr<<"\tWater volume             = "<<water_vol       <<std::endl;
-  std::cerr<<"\tCurrent volume           = "<<current_volume       <<std::endl;
-  std::cerr<<"\tTotal elevation          = "<<total_elevation      <<std::endl;
-  std::cerr<<"\tNumber of cells affected = "<<cells_affected.size()<<std::endl;  
-  // PrintDEM("Visited", visited);
-  // PrintDEM("Labels",  label  );
   throw std::runtime_error("PQ loop exited without filling a depression!");
-
 }
 
-
-
-
-
-
-  
 
 
 template<class elev_t>
@@ -697,8 +649,6 @@ SubtreeDepressionInfo Find_filled(
   //Stop when we reach one level below the leaves
   if(current_depression==NO_VALUE)
     return SubtreeDepressionInfo();
-
-  // std::cerr<<level<<"\033[93mInspecting depression "<<current_depression<<"\033[39m"<<std::endl;
 
   const auto& this_dep = deps.at(current_depression);
 
@@ -735,9 +685,7 @@ SubtreeDepressionInfo Find_filled(
   //The water volume should never be greater than the depression volume because
   //otherwise we would have overflowed the water into the neighbouring
   //depression and moved the excess to the parent.
-  if(this_dep.water_vol>this_dep.dep_vol){ //TODO: Make this an assert?
-    throw std::runtime_error("water_vol>dep_vol");
-  }
+  assert(this_dep.water_vol<=this_dep.dep_vol);
 
   //Since depressions store their marginal water volumes, if a parent depression
   //has 0 marginal water volume, then both of its children have sufficient
