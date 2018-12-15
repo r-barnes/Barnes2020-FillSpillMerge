@@ -82,6 +82,10 @@ int main(int argc, char **argv){
 
   SaveAsNetCDF(wtd,out_name+"-wtd.nc","value");
 
+  rd::Array2D<float> wtd_master = LoadData<float>("wtd_master.nc",std::string("value"));   //Recharge (Percipitation minus Evapotranspiration)
+  for(unsigned int i=0;i<wtd.size();i++)
+    assert(wtd(i)==wtd_master(i));
+
   for(unsigned int i=0;i<topo.size();i++)
     if(!topo.isNoData(i))
       wtd(i) += topo(i);
@@ -109,6 +113,10 @@ int main(int argc, char **argv){
       throw std::runtime_error("Elevations differ!");
     }
   }
+
+  
+
+
 
   std::cerr<<"Finished"<<std::endl;
   std::cerr<<"Wall-time = "<<timer_overall.stop()  <<" s"<<std::endl;
