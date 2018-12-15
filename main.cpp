@@ -82,9 +82,11 @@ int main(int argc, char **argv){
 
   SaveAsNetCDF(wtd,out_name+"-wtd.nc","value");
 
-  rd::Array2D<float> wtd_master = LoadData<float>("wtd_master.nc",std::string("value"));   //Recharge (Percipitation minus Evapotranspiration)
+  std::cerr<<"Checking against master..."<<std::endl;
+  rd::Array2D<float> wtd_master("wtd_master.dat", true);   //Recharge (Percipitation minus Evapotranspiration)
   for(unsigned int i=0;i<wtd.size();i++)
     assert(wtd(i)==wtd_master(i));
+  std::cerr<<"wtd field matches master!"<<std::endl;
 
   for(unsigned int i=0;i<topo.size();i++)
     if(!topo.isNoData(i))
