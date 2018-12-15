@@ -112,14 +112,11 @@ void SurfaceWater(
     if (n == NO_FLOW){    //if this is a pit cell, move the water to the appropriate depression's water_vol.    
       if(wtd(c)>0){
         deps[label(c)].water_vol += wtd(c);
-        // std::cout<<"Giving water to "<<label(c)<<" "<<c<<" "<<deps[label(c)].water_vol<<std::endl;
-   //   std::cout<<"the total water in this depression is "<<deps[label(c)].water_vol<<" and it is depression "<<label(c)<<std::endl;
         wtd(c) = 0; //Clean up as we go
       }
     } else {                               //not a pit cell
       //If we have water, pass it downstream.
       if(wtd(c)>0){ //Groundwater can go negative, so it's important to make sure that we are only passing positive water around
-    //    std::cout<<"we have water coming from "<<c<<" and going to "<<n<<std::endl;
         wtd(n) += wtd(c);  //Add water to downstream neighbour. This might result in filling up the groundwater table, which could have been negative
         wtd(c)  = 0;       //Clean up as we go
       }
@@ -259,7 +256,6 @@ label_t OverflowInto(
 
 
 
-//Richard: Checked this
 template<class elev_t>
 void Overflow(
   int                                   current_depression,
@@ -358,11 +354,7 @@ void Overflow(
            && deps.at(this_dep.rchild).water_vol<this_dep.water_vol
          )
     );
-
-    // std::cout<<"parent number "<<deps.at(this_dep.parent).dep_label<<" now has water volume "<<deps.at(this_dep.parent).water_vol<<std::endl;
   }
-
-  // std::cout<<"and after: depression number "<<this_dep.dep_label<<" volume "<<this_dep.dep_vol<<" water "<<this_dep.water_vol<<std::endl;
 
   //All overflowing depressions should by now have overflowed all the way down
   //to the ocean. We must now spread the water in the depressions by setting
@@ -370,10 +362,6 @@ void Overflow(
 }
 
  
-
-
-
-
 
 //Simple data structure to hold information needed to spread water in a filled
 //metadepression.
@@ -411,9 +399,6 @@ void Fill_Water(
   if(water_vol==0)
     return;
 
-  //changing tactics to start always from the leaves, then work your way up until you find something that isn't completely full. 
-  // std::cerr<<"\n\n\033[35m####################### Fill Water\033[39m"<<std::endl;
-
   //TODO: Use hashset to avoid allocating massive chunks of memory.
   rd::Array2D<bool> visited(topo.width(),topo.height(),false);
  
@@ -423,15 +408,6 @@ void Fill_Water(
   //the cells processed by the depression hierarchy.
   GridCellZk_high_pq<elev_t> flood_q;                          
 
-  // std::cerr<<"Bottom label      = "<<stdi.leaf_label<<std::endl;
-  // std::cerr<<"Depression volume = "<<deps.at(stdi.top_label).dep_vol<<"\n";
-  // std::cerr<<"Water volume      = "<<water_vol<<std::endl;
-  // std::cerr<<"Allowed labels    = ";
-  // for(auto x:stdi.my_labels)
-  //   std::cerr<<x<<" ";
-  // std::cerr<<std::endl;
-
- 
   { //Scope to limit pit_cell
     //Cell from which we can begin flooding the meta-depression. Which one we
     //choose is arbitrary, since we will fill all of the leaf depressions and
@@ -537,24 +513,17 @@ void Fill_Water(
 
       //TODO: Use floating-point comparisons in these asserts.
       //Water level must be higher than (or equal to) the previous cell we looked at, but lower than (or equal to) the current cell
-      // std::cerr<<"water level = "<<water_level<<" last topo "<<topo(cells_affected.back())<<" "<<bool(topo(cells_affected.back())<=water_level)<<std::endl;
       assert(cells_affected.size()==0 || topo(cells_affected.back())<=water_level+FP_ERROR); 
-      // std::cerr<<"water level = "<<water_level<<" my topo "<<topo(c.x,c.y)<<std::endl;
       assert(topo(c.x,c.y)-water_level>=-1e-3);
 
-      // std::cerr<<"Adjusting wtd of depression...\n";
-      // std::cerr<<"\twater_level = "<<water_level<<std::endl;
       for(const auto c: cells_affected){
-        // std::cerr<<"Cell ("<<(c%topo.width())<<","<<(c/topo.width())<<") has elev="<<topo(c)<<", label="<<label(c)<<", wtd_old="<<wtd(c);
         assert(wtd(c)>=0);               //This should be true since we have been filling wtds as we go.
         if(water_level<topo(c)){
-          // PrintCellsAffectedProfile(cells_affected,my_elev,topo);
           assert(water_level>=topo(c)-FP_ERROR);
         }
         wtd(c) = water_level - topo(c);  //only change the wtd if it is an increase, here. We can't take water away from cells that already have it (ie reduce groundwater in saddle cells within a metadepression.)
         if(-FP_ERROR<=wtd(c) && wtd(c)<0)
           wtd(c) = 0;
-        // std::cerr<<", wtd_new="<<wtd(c)<<std::endl;
         assert(wtd(c)>=0);
       }
 
@@ -588,13 +557,11 @@ void Fill_Water(
       total_elevation += topo(c.x,c.y);   //TODO: Should this be wtd? No. Since wtd is zero as of the lines just above.
 
       for(int n=0;n<neighbours;n++){
-        // std::cerr<<"in the for "<<n<<std::endl;
         const int nx = c.x + dx[n]; //TODO ModFloor(x+dx[n],topo.width()); //Get neighbour's x-coordinate using an offset and wrapping
         const int ny = c.y + dy[n];                     //Get neighbour's y-coordinate using an offset
         if(!topo.inGrid(nx,ny))                         //Is this cell in the grid?
           continue;                                     //Nope: out of bounds.
      
-        // std::cerr<<"PQ inspecting ("<<nx<<","<<ny<<") which has label "<<label(nx,ny)<<std::endl;
         //Ocean cells may be found at the edge of a depression. They might get
         //added to this list even if there are other, lower, cells within the
         //depression which have not yet been explored. This happens when a flat
@@ -608,7 +575,6 @@ void Fill_Water(
         //e.g. an escarpment before the ocean. 
 
         if(!visited(nx,ny) && (label(nx,ny)!=OCEAN || topo(nx,ny)>OCEAN_LEVEL)){                  // add the neighbour only if it hasn't been added before 
-          // std::cerr<<"\tadding to the queue a value of "<<topo(nx,ny)<<" "<<" nx "<<nx<<" ny "<<ny<<" x "<<c.x<<" y "<<c.y<<std::endl;
           flood_q.emplace(nx,ny,topo(nx,ny));      //add all neighbours that haven't been added before to the queue. 
           visited(nx,ny) = true;
         }
@@ -699,27 +665,6 @@ SubtreeDepressionInfo Find_filled(
     return combined;
   }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-  
-
-     
-
-
-
-
-
-
 
   //TODO 4/5. Perform a depth-first post-order traversal of the depression
   //hierarchy (start with depressions for which `parent==NO_PARENT`. When you
