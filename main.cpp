@@ -881,7 +881,7 @@ int main(int argc, char **argv){
 
   PrintDEM("Topography", topo);
 
-  rd::Array2D<float>     wtd     (topo.width(), topo.height(), 1      ); //All cells have some water
+  rd::Array2D<float>     wtd     (topo.width(), topo.height(), 1000   ); //All cells have some water
   rd::Array2D<label_t>   label   (topo.width(), topo.height(), NO_DEP ); //No cells are part of a depression
   rd::Array2D<flowdir_t> flowdirs(topo.width(), topo.height(), NO_FLOW); //No cells flow anywhere
 
