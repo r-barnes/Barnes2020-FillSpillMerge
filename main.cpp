@@ -976,7 +976,10 @@ int main(int argc, char **argv){
   rd::FillDepressions<rd::Topology::D8>(topo);
   SaveAsNetCDF(topo,out_name+"-filled.nc","value");
 
-
+  rd::Array2D<float> diff(wtd);
+  for(unsigned int i=0;i<topo.size();i++)
+    diff(i) = wtd(i)-topo(i);
+  SaveAsNetCDF(diff,out_name+"-diff.nc","value");
 
   std::cerr<<"Finished"<<std::endl;
 
