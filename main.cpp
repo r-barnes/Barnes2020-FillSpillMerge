@@ -961,10 +961,12 @@ int main(int argc, char **argv){
   //   std::cerr<<std::endl;
   // }
   
-
   std::cerr<<"\n\n\033[91m#######################Finding Filled\033[39m"<<std::endl;
+  rd::Timer timer_filled;
+  timer_filled.start();
   Find_filled(OCEAN,deps,topo,label,wtd);                              //This should check everything that is an immediate child of the ocean, so we're supposed to hit all the depressions like this. 
-       
+  std::cerr<<"Fill time = "<<timer_filled.stop()<<" s"<<std::endl;
+
   SaveAsNetCDF(wtd,out_name+"-wtd.nc","value");
 
   for(int i=0;i<topo.size();i++)
