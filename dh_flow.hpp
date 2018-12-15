@@ -35,7 +35,6 @@ const double FP_ERROR = 1e-4;
 const float  OCEAN_LEVEL = 0;  //ocean_level in the topo file must be lower than any non-ocean cell. 
 
 
-rd::Array2D<flowdir_t> flowdirs; //TODO: Make non-global
 
 template<class elev_t>
 void SurfaceWater(
@@ -440,10 +439,6 @@ void Fill_Water(
   //dephier.hpp TODO)
   double total_elevation = 0;
 
-
-  //TODO: It's possible to accelerate this by greedily eating cells which belong
-  //"only" to the meta-depression.
-
   while(!flood_q.empty()){
     const auto c = flood_q.top();
     flood_q.pop();
@@ -462,9 +457,9 @@ void Fill_Water(
     //Current volume of this subset of the metadepression. Since we might climb
     //over a saddle point, this value can occasionally be negative. It will be
     //positive by the time we need to spread the water around.
-    const double current_volume = cells_affected.size()*topo(c.x,c.y) - total_elevation; //TODO: Local var
+    const double current_volume = cells_affected.size()*topo(c.x,c.y) - total_elevation;
 
-    //TODO: If this is false by a small margin, then it's a floating point issue
+    //NOTE: If this is false by a small margin, then it's a floating point issue
     //and this should be adjusted to be >=-1e-6 and water_vol should be made 0
     assert(water_vol>=0); 
 
@@ -518,7 +513,6 @@ void Fill_Water(
       }
 
 
-      //TODO: Use floating-point comparisons in these asserts.
       //Water level must be higher than (or equal to) the previous cell we looked at, but lower than (or equal to) the current cell
       assert(cells_affected.size()==0 || topo(cells_affected.back())<=water_level+FP_ERROR); 
       assert(topo(c.x,c.y)-water_level>=-1e-3);
@@ -561,7 +555,7 @@ void Fill_Water(
       wtd(c.x,c.y)    = 0;             //Now we are sure that wtd is 0, since we've just filled it
       
       //Add the current cell's information to the running total
-      total_elevation += topo(c.x,c.y);   //TODO: Should this be wtd? No. Since wtd is zero as of the lines just above.
+      total_elevation += topo(c.x,c.y);
 
       for(int n=0;n<neighbours;n++){
         const int nx = c.x + dx[n]; //TODO ModFloor(x+dx[n],topo.width()); //Get neighbour's x-coordinate using an offset and wrapping
@@ -582,8 +576,8 @@ void Fill_Water(
         //mistakenly miss adding higher cells which belong to the ocean's depression
         //e.g. an escarpment before the ocean. 
 
-        if(visited.count(ni)==0 && (label(nx,ny)!=OCEAN || topo(nx,ny)>OCEAN_LEVEL)){                  // TODO add the neighbour only if it hasn't been added before 
-          flood_q.emplace(nx,ny,topo(nx,ny));      //TODO add all neighbours that haven't been added before to the queue. 
+        if(visited.count(ni)==0 && (label(nx,ny)!=OCEAN || topo(nx,ny)>OCEAN_LEVEL)){
+          flood_q.emplace(nx,ny,topo(nx,ny));
           visited.emplace(ni);
         }
       }
@@ -606,8 +600,7 @@ SubtreeDepressionInfo Find_filled(
   const DepressionHierarchy<elev_t> &deps,                  //Depression hierarchy
   const rd::Array2D<float>          &topo,                  //Topographic data (used for determinining volumes as we're spreading stuff)
   const rd::Array2D<label_t>        &label,                 //Array indicating which leaf depressions each cell belongs to
-  rd::Array2D<float>                &wtd,                   //Water table depth
-  std::string level =""                                     //TODO: For debugging
+  rd::Array2D<float>                &wtd                    //Water table depth
 ){
   //Stop when we reach one level below the leaves
   if(current_depression==NO_VALUE)
@@ -620,7 +613,7 @@ SubtreeDepressionInfo Find_filled(
   //metadepression tree by Overflow(). Similar, it doesn't mater what their leaf
   //labels are since we will never spread water into them.
   for(const auto c: this_dep.ocean_linked)
-    Find_filled(c, deps, topo, label, wtd, level+"\t");
+    Find_filled(c, deps, topo, label, wtd);
 
   //At this point we've visited all of the ocean-linked depressions. Since all
   //depressions link to the ocean and the ocean has no children, this means we
@@ -631,8 +624,8 @@ SubtreeDepressionInfo Find_filled(
 
   //We visit both of the children. We need to keep track of info from these
   //because we may spread water across them.
-  SubtreeDepressionInfo left_info  = Find_filled(this_dep.lchild,deps,topo,label,wtd,level+"\t");
-  SubtreeDepressionInfo right_info = Find_filled(this_dep.rchild,deps,topo,label,wtd,level+"\t");   
+  SubtreeDepressionInfo left_info  = Find_filled(this_dep.lchild, deps, topo, label, wtd);
+  SubtreeDepressionInfo right_info = Find_filled(this_dep.rchild, deps, topo, label, wtd);   
 
   SubtreeDepressionInfo combined;
   combined.my_labels.emplace(current_depression);
