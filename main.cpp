@@ -969,6 +969,9 @@ int main(int argc, char **argv){
 
   SaveAsNetCDF(wtd,out_name+"-wtd.nc","value");
 
+  wtd.filename = "wtd_master.dat";
+  wtd.dumpData();
+
   for(int i=0;i<topo.size();i++)
     if(!topo.isNoData(i))
       wtd(i) += topo(i);
