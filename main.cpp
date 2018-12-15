@@ -969,8 +969,8 @@ int main(int argc, char **argv){
 
   SaveAsNetCDF(wtd,out_name+"-wtd.nc","value");
 
-  wtd.filename = "wtd_master.dat";
-  wtd.dumpData();
+  wtd.geotransform = {{0,3,0,0,0,3}};
+  wtd.saveToCache("wtd_master.dat");
 
   for(int i=0;i<topo.size();i++)
     if(!topo.isNoData(i))
