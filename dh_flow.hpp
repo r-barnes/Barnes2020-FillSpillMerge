@@ -399,8 +399,13 @@ void Fill_Water(
   if(water_vol==0)
     return;
 
-  //TODO: Use hashset to avoid allocating massive chunks of memory.
-  rd::Array2D<bool> visited(topo.width(),topo.height(),false);
+  //Hashset stores the ids of the cells we've visited. We don't want to use a 2D
+  //array because the size of the DEM as a whole could be massive and that's a
+  //lot of memory to allocate/deallocate each time this function is called. We
+  //arbitrarily reserve enough space in the hashset for 4096 items. This should
+  //be large than most depressions while still being small by the computer's
+  //standards.
+  std::unordered_set<int> visited(4096);
  
   //Priority queue that sorts cells by lowest elevation first. If two cells are
   //of equal elevation the one added most recently is popped first. The ordering
@@ -416,13 +421,15 @@ void Fill_Water(
     const auto pit_cell    = deps.at(stdi.leaf_label).pit_cell;
     assert(pit_cell>=0);
 
+    //We start flooding at the pit cell of the depression and work our way
+    //upwards
     flood_q.emplace(
       pit_cell % topo.width(),
       pit_cell / topo.width(),
       topo(pit_cell)
-    );                    //create a new priority queue starting with the pit cell of the depression
+    );
 
-    visited(pit_cell) = true;//label(pit_cell);         // show that we have already added this cell to those that have water. We need a better way to do this. 
+    visited.emplace(pit_cell);
   }
 
   //Cells whose wtd will be affected as we spread water around
@@ -561,6 +568,7 @@ void Fill_Water(
         const int ny = c.y + dy[n];                     //Get neighbour's y-coordinate using an offset
         if(!topo.inGrid(nx,ny))                         //Is this cell in the grid?
           continue;                                     //Nope: out of bounds.
+        const int ni = topo.xyToI(nx,ny);               //Get neighbour's flat index
      
         //Ocean cells may be found at the edge of a depression. They might get
         //added to this list even if there are other, lower, cells within the
@@ -574,9 +582,9 @@ void Fill_Water(
         //mistakenly miss adding higher cells which belong to the ocean's depression
         //e.g. an escarpment before the ocean. 
 
-        if(!visited(nx,ny) && (label(nx,ny)!=OCEAN || topo(nx,ny)>OCEAN_LEVEL)){                  // add the neighbour only if it hasn't been added before 
-          flood_q.emplace(nx,ny,topo(nx,ny));      //add all neighbours that haven't been added before to the queue. 
-          visited(nx,ny) = true;
+        if(visited.count(ni)==0 && (label(nx,ny)!=OCEAN || topo(nx,ny)>OCEAN_LEVEL)){                  // TODO add the neighbour only if it hasn't been added before 
+          flood_q.emplace(nx,ny,topo(nx,ny));      //TODO add all neighbours that haven't been added before to the queue. 
+          visited.emplace(ni);
         }
       }
     }
