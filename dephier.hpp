@@ -506,12 +506,12 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
       //accordingly. Not all the pit cells originally added will form new
       //depressions as flat cells will relabel their neighbours and the first                                                 
       //cell found in a flat determines the label for the entirety of that flat.
-      clabel          = depressions.size();         //In a 0-based indexing system, size is equal to the id of the next flat
-      auto &newdep    = depressions.emplace_back(); //Add the next flat (increases size by 1)
-      newdep.pit_cell = dem.xyToI(c.x,c.y);         //Make a note of the pit cell's location
-      newdep.pit_elev = celev;                      //Make a note of the pit cell's elevation
-      newdep.dep_label = clabel;                    //I am storing the label in the object so that I can find it later and call up the number of cells and volume (better way of doing this?) -- I have since realised I can use the index in the depressions array. So perhaps the label is no longer needed?
-      label(ci)       = clabel;                     //Update cell with new label                                                           
+      clabel           = depressions.size();         //In a 0-based indexing system, size is equal to the id of the next flat
+      auto &newdep     = depressions.emplace_back(); //Add the next flat (increases size by 1)
+      newdep.pit_cell  = dem.xyToI(c.x,c.y);         //Make a note of the pit cell's location
+      newdep.pit_elev  = celev;                      //Make a note of the pit cell's elevation
+      newdep.dep_label = clabel;                     //I am storing the label in the object so that I can find it later and call up the number of cells and volume (better way of doing this?) -- I have since realised I can use the index in the depressions array. So perhaps the label is no longer needed?
+      label(ci)        = clabel;                     //Update cell with new label                                                           
    //   newdep.cell_count = 1;                        //this is a new depression, so it contains one cell, the current (pit) cell.                                                     
       // newdep.dep_vol =                                                                                 we can't do this yet because we don't have the outlet cell yet. 
   //    newdep.dep_sum_elevations = celev;            //I am storing the total sum of all elevations within the depression to use later in the Water Level Equation. So far, the sum of all elevations is this single pit cell. 
