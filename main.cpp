@@ -3,7 +3,7 @@
 #include <iostream>
 #include <richdem/common/Array2D.hpp>
 #include <string>
-
+#include <stdexcept>
 
 int main(int argc, char **argv){
   if(argc!=4){
@@ -23,9 +23,11 @@ int main(int argc, char **argv){
   rd::Array2D<float> topo = LoadData<float>(in_name,std::string("value"));   //Recharge (Percipitation minus Evapotranspiration)
   timer_io.stop();
 
-  rd::Array2D<float>     wtd     (topo.width(), topo.height(), 1      ); //All cells have some water
+  rd::Array2D<float>     wtd     (topo.width(), topo.height(), 1000    ); //All cells have some water
   rd::Array2D<label_t>   label   (topo.width(), topo.height(), NO_DEP ); //No cells are part of a depression
   rd::Array2D<flowdir_t> flowdirs(topo.width(), topo.height(), NO_FLOW); //No cells flow anywhere
+
+  wtd.setNoData(topo.noData());
 
   //Label the ocean cells. This is a precondition for using
   //`GetDepressionHierarchy()`.
@@ -85,6 +87,25 @@ int main(int argc, char **argv){
 
   rd::FillDepressions<rd::Topology::D8>(topo);
   SaveAsNetCDF(topo,out_name+"-filled.nc","value");
+
+  rd::Array2D<float> diff(wtd);
+  for(unsigned int i=0;i<topo.size();i++)
+    diff(i) = wtd(i)-topo(i);
+  SaveAsNetCDF(diff,out_name+"-diff.nc","value");
+
+  for(unsigned int i=0;i<topo.size();i++){
+    if(topo.isNoData(i) && wtd.isNoData(i)){
+      continue;
+    } else if(topo.isNoData(i) || wtd.isNoData(i)) {
+      std::cerr<<topo(i)<<" "<<wtd(i)<<" "<<topo.noData()<<" "<<wtd.noData()<<std::endl;
+      throw std::runtime_error("Unmatched NoData!");
+    } else if(std::abs(topo(i)-wtd(i))<=1e-1) {
+      continue;
+    } else {
+      std::cerr<<std::fixed<<std::setprecision(10)<<topo(i)<<" "<<std::fixed<<std::setprecision(10)<<wtd(i)<<" "<<topo.noData()<<" "<<wtd.noData()<<std::endl;
+      throw std::runtime_error("Elevations differ!");
+    }
+  }
 
   std::cerr<<"Finished"<<std::endl;
   std::cerr<<"Wall-time = "<<timer_overall.stop()  <<" s"<<std::endl;
