@@ -402,10 +402,10 @@ void Fill_Water(
   //Hashset stores the ids of the cells we've visited. We don't want to use a 2D
   //array because the size of the DEM as a whole could be massive and that's a
   //lot of memory to allocate/deallocate each time this function is called. We
-  //arbitrarily reserve enough space in the hashset for 4096 items. This should
-  //be large than most depressions while still being small by the computer's
-  //standards.
-  std::unordered_set<int> visited(4096);
+  //arbitrarily reserve enough space in the hashset for a few thousand items.
+  //This should be large than most depressions while still being small by the
+  //computer's standards.
+  std::unordered_set<int> visited(2048);
  
   //Priority queue that sorts cells by lowest elevation first. If two cells are
   //of equal elevation the one added most recently is popped first. The ordering
