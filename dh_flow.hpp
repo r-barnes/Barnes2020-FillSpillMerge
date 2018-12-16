@@ -22,21 +22,18 @@
 #include <unordered_set>
 #include <utility>
 
-namespace dhflow {
+namespace richdem {
 
-namespace rd = richdem;
+namespace dephier {
 
-const int    *const dx       = dx8;
-const int    *const dy       = dy8;
-const int    *const dinverse = d8inverse;
-const double *const dr       = dr8;
-const int neighbours         = 8;
+const int *const dx         = d8x;
+const int *const dy         = d8y;
+const int *const dinverse   = d8_inverse;
+const int        neighbours = 8;
 
 const double FP_ERROR = 1e-4;
 
 const float  OCEAN_LEVEL = 0;  //ocean_level in the topo file must be lower than any non-ocean cell. 
-
-
 
   //TODO: 0. Calculate the number of cells within and volume of each depression.   DONE 
   //This will take place inside of GetDepressionHierarchy.
@@ -76,10 +73,10 @@ const float  OCEAN_LEVEL = 0;  //ocean_level in the topo file must be lower than
 
 
 
-template<class elev_t>
+template<class elev_t, class wtd_t>
 void MoveWaterIntoPits(
   const rd::Array2D<elev_t>    &topo,
-  rd::Array2D<float>           &wtd,
+  rd::Array2D<wtd_t>           &wtd,
   const rd::Array2D<int>       &label,
   DepressionHierarchy<elev_t>  &deps,
   const rd::Array2D<flowdir_t> &flowdirs
@@ -99,7 +96,7 @@ void MoveWaterIntoPits(
   #pragma omp parallel for collapse(2)
   for(int y=0;y<topo.height();y++)
   for(int x=0;x<topo.width(); x++)
-  for(int n=0;n<neighbours;n++){      //Loop through neighbours
+  for(int n=1;n<=neighbours;n++){     //Loop through neighbours
     const int nx = x+dx[n];           //Identify coordinates of neighbour
     const int ny = y+dy[n];
     if(!topo.inGrid(nx,ny))
@@ -200,12 +197,12 @@ void MoveWaterIntoPits(
 //
 //@return The depression where the water ultimately ended up
 template<class elev_t>
-label_t OverflowInto(
-  const label_t                         root,
-  const label_t                         stop_node,
-  DepressionHierarchy<elev_t>          &deps,
-  std::unordered_map<label_t, label_t> &jump_table,  //Shortcut from one depression to its next known empty neighbour
-  double                                extra_water
+dh_label_t OverflowInto(
+  const dh_label_t                            root,
+  const dh_label_t                            stop_node,
+  DepressionHierarchy<elev_t>                &deps,
+  std::unordered_map<dh_label_t, dh_label_t> &jump_table,  //Shortcut from one depression to its next known empty neighbour
+  double                                      extra_water
 ){
   auto &this_dep = deps.at(root);
 
@@ -281,9 +278,9 @@ label_t OverflowInto(
 
 template<class elev_t>
 void MoveWaterInDepHier(
-  int                                   current_depression,
-  DepressionHierarchy<elev_t>          &deps,
-  std::unordered_map<label_t, label_t> &jump_table
+  int                                         current_depression,
+  DepressionHierarchy<elev_t>                &deps,
+  std::unordered_map<dh_label_t, dh_label_t> &jump_table
 ){
   if(current_depression==NO_VALUE)
     return;
@@ -406,7 +403,7 @@ class SubtreeDepressionInfo {
 
 
 
-template<class elev_t>
+template<class elev_t, class wtd_t>
 void FillDepressions(
   //Identifies a meta-depression through which water should be spread, leaf node
   //from which the water should be spread, valid depressions across which water
@@ -415,8 +412,8 @@ void FillDepressions(
   double                             water_vol, //Amount of water to spread around this depression
   const DepressionHierarchy<elev_t> &deps,  //Depression hierarchy
   const rd::Array2D<float>          &topo,  //Topographic data for calculating marginal volumes as we attempt to spread water
-  const rd::Array2D<label_t>        &label, //2D array in which each cell is labeled with the leaf depression it belongs to
-  rd::Array2D<float>                &wtd    //Water table depth: we transfer water into this
+  const rd::Array2D<dh_label_t>     &label, //2D array in which each cell is labeled with the leaf depression it belongs to
+  rd::Array2D<wtd_t>                &wtd    //Water table depth: we transfer water into this
 ){
   //Nothing to do if we have no water
   if(water_vol==0)
@@ -581,7 +578,7 @@ void FillDepressions(
       //Add the current cell's information to the running total
       total_elevation += topo(c.x,c.y);
 
-      for(int n=0;n<neighbours;n++){
+      for(int n=1;n<=neighbours;n++){
         const int nx = c.x + dx[n]; //TODO ModFloor(x+dx[n],topo.width()); //Get neighbour's x-coordinate using an offset and wrapping
         const int ny = c.y + dy[n];                     //Get neighbour's y-coordinate using an offset
         if(!topo.inGrid(nx,ny))                         //Is this cell in the grid?
@@ -623,7 +620,7 @@ SubtreeDepressionInfo FindDepressionsToFill(
   const int                          current_depression,    //Depression we are currently in
   const DepressionHierarchy<elev_t> &deps,                  //Depression hierarchy
   const rd::Array2D<float>          &topo,                  //Topographic data (used for determinining volumes as we're spreading stuff)
-  const rd::Array2D<label_t>        &label,                 //Array indicating which leaf depressions each cell belongs to
+  const rd::Array2D<dh_label_t>     &label,                 //Array indicating which leaf depressions each cell belongs to
   rd::Array2D<float>                &wtd                    //Water table depth
 ){
   //Stop when we reach one level below the leaves
@@ -695,11 +692,11 @@ SubtreeDepressionInfo FindDepressionsToFill(
 
 template<class elev_t, class wtd_t>
 void FlowInDepressionHierarchy(
-  const rd::Array2D<elev_t>    &topo,
-  const rd::Array2D<label_t>   &label,
-  const rd::Array2D<flowdir_t> &flowdirs,
-  DepressionHierarchy<elev_t>  &deps,
-  rd::Array2D<wtd_t>           &wtd
+  const rd::Array2D<elev_t>     &topo,
+  const rd::Array2D<dh_label_t> &label,
+  const rd::Array2D<flowdir_t>  &flowdirs,
+  DepressionHierarchy<elev_t>   &deps,
+  rd::Array2D<wtd_t>            &wtd
 ){
   rd::Timer timer_overall;
   timer_overall.start();
@@ -711,7 +708,7 @@ void FlowInDepressionHierarchy(
     //`jump_table` frees its memory
     rd::Timer timer_overflow;
     timer_overflow.start();
-    std::unordered_map<label_t, label_t> jump_table;
+    std::unordered_map<dh_label_t, dh_label_t> jump_table;
     MoveWaterInDepHier(OCEAN, deps, jump_table);
     std::cerr<<"t FlowInDepressionHierarchy: Overflow time = "<<timer_overflow.stop()<<std::endl;
   }
@@ -741,6 +738,8 @@ void FlowInDepressionHierarchy(
   std::cerr<<"m wtd field matches master!"<<std::endl;
 
   std::cerr<<"t FlowInDepressionHierarchy = "<<timer_overall.stop()<<" s"<<std::endl;
+}
+
 }
 
 }

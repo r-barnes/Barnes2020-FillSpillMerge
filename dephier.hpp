@@ -12,6 +12,7 @@
 #include <richdem/common/timer.hpp>
 #include <richdem/common/ProgressBar.hpp>
 #include <richdem/common/grid_cell.hpp>
+#include <richdem/common/constants.hpp>
 #include "DisjointDenseIntSet.hpp"
 #include "../common/netcdf.hpp"
 #include <algorithm>
@@ -27,58 +28,17 @@
 #include <unordered_map>
 #include <utility>
 
-namespace rd = richdem;
+namespace richdem {
 
-constexpr double SQ2 = std::sqrt(2.0);
-
-//Implements D8 connectivity
-//1 2 3
-//0   4
-//7 6 5
-//                                0  1  2  3 4 5 6  7
-//x-offset from focal cell
-static const int dx8[8]       = {-1,-1, 0, 1,1,1,0,-1};   
-//y-offset from focal cell
-static const int dy8[8]       = {0, -1,-1,-1,0,1,1, 1};   
-//Horizontal distance from focal cell to neighbours
-static const double dr8[8]    = {1,SQ2,1,SQ2,1,SQ2,1,SQ2};
-//Each number indicates a direction opposite of the one implied by its position
-//in the array
-static const int d8inverse[8] = {4,  5, 6, 7,0,1,2, 3};   
-
-//Implements D4 connectivity
-//  1
-//0   2
-//  3
-//                                0  1 2 3
-//x-offset from focal cell
-static const int dx4[8]       = {-1, 0,1,0};
-//y-offset from focal cell
-static const int dy4[8]       = { 0,-1,0,1};
-//Horizontal distance from focal cell to neighbours
-static const double dr4[4]    = { 1, 1,1,1};
-//Each number indicates a direction opposite of the one implied by its position in the array
-static const int d4inverse[4] = { 2, 3,0,1};
-
-//Used for expressing the topology to be used by the algorithm
-enum class Topology {
-  D4,
-  D8
-};
+namespace dephier {
 
 //We use a 32-bit integer for labeling depressions. This allows for a maximum of
 //2,147,483,647 depressions. This should be enough for most practical purposes.
-typedef int32_t label_t;
+typedef int32_t dh_label_t;
 
-//Some special values
-const label_t NO_PARENT = -1;                                                           //where do these types, flowdir_t and label_t, come from?
-const label_t NO_VALUE  = -1;
-
-//We use an 8-bit signed integer for labeling D4/D8/Rho4/Rho8 flow directions.
-typedef int8_t flowdir_t;
-const flowdir_t NO_FLOW = -1;
-
-
+//Some special valuess
+const dh_label_t NO_PARENT = -1;
+const dh_label_t NO_VALUE  = -1;
 
 //This class holds information about a depression. Its pit cell and outlet cell
 //(in flat-index form) as well as the elevations of these cells. It also notes                                                   //what is flat-index form?
@@ -91,21 +51,21 @@ class Depression {
  public:
   //Flat index of the pit cell, the lowest cell in the depression. If more than
   //one cell shares this lowest elevation, then one is arbitrarily chosen.
-  label_t pit_cell = NO_VALUE;
+  dh_label_t pit_cell = NO_VALUE;
   //Flat index of the outlet cell. If there is more than one outlet cell at this
   //cell's elevation, then one is arbitrarily chosen.
-  label_t out_cell = NO_VALUE;
+  dh_label_t out_cell = NO_VALUE;
   //Parent depression. If both this depression and its neighbour fill up, this
   //parent depression is the one which will contain the overflow.
-  label_t parent   = NO_PARENT;
+  dh_label_t parent   = NO_PARENT;
   //Outlet depression. The metadepression into which this one overflows. Usually
   //its neighbour depression, but sometimes the ocean.
-  label_t odep     = NO_VALUE;
+  dh_label_t odep     = NO_VALUE;
   //When a metadepression overflows it does so into the metadepression indicated
   //by `odep`. However, odep must flood from the bottom up. Therefore, we keep
   //track of the `geolink`, which indicates what leaf depression the overflow is
   //initially routed into.
-  label_t geolink  = NO_VALUE;
+  dh_label_t geolink  = NO_VALUE;
   //Elevation of the pit cell. Since the pit cell has the lowest elevation of
   //any cell in the depression, we initialize this to infinity.
   elev_t  pit_elev = std::numeric_limits<elev_t>::infinity();
@@ -114,17 +74,17 @@ class Depression {
   elev_t  out_elev = std::numeric_limits<elev_t>::infinity();
   //The depressions form a binary tree. Each depression has two child
   //depressions: one left and one right.
-  label_t lchild = NO_VALUE;
-  label_t rchild = NO_VALUE;
+  dh_label_t lchild = NO_VALUE;
+  dh_label_t rchild = NO_VALUE;
   //Indicates whether the parent link is to either the ocean or a depression
   //that links to the ocean
   bool ocean_parent = false;
   //Indicates depressions which link to the ocean through this depression, but
   //are not subdepressions. That is, these ocean-linked depressions may be at
   //the top of high cliffs and spilling into this depression.
-  std::vector<label_t> ocean_linked;
+  std::vector<dh_label_t> ocean_linked;
   //the label of the depression, for calling it up again
-  label_t dep_label = 0;
+  dh_label_t dep_label = 0;
   //Number of cells contained within the depression and its children
   uint32_t cell_count = 0;
   //Total of elevations within the depression, used in the WLE. Because I think I need to start adding up total elevations before I know the outlet of the depression. 
@@ -167,10 +127,10 @@ class Depression {
 //the outlets.
 class OutletLink {
  public:
-  label_t depa;
-  label_t depb;
+  dh_label_t depa;
+  dh_label_t depb;
   OutletLink() = default;
-  OutletLink(label_t depa0, label_t depb0) : depa(depa0), depb (depb0) {}
+  OutletLink(dh_label_t depa0, dh_label_t depb0) : depa(depa0), depb (depb0) {}
   //This is used to compare two outlets. The outlets are the same regardless of
   //the order in which they store depressions
   bool operator==(const OutletLink &o) const {
@@ -183,9 +143,9 @@ class OutletLink {
 template<class elev_t>
 class Outlet {
  public:
-  label_t depa;                //Depression A
-  label_t depb;                //Depression B
-  label_t out_cell = NO_VALUE; //Flat-index of cell at which A and B meet.
+  dh_label_t depa;                //Depression A
+  dh_label_t depb;                //Depression B
+  dh_label_t out_cell = NO_VALUE; //Flat-index of cell at which A and B meet.
   //Elevation of the cell linking A and B
   elev_t  out_elev = std::numeric_limits<elev_t>::infinity();
 
@@ -200,7 +160,7 @@ class Outlet {
   Outlet() = default;
 
   //Standard issue constructor
-  Outlet(label_t depa0, label_t depb0, label_t out_cell0, elev_t out_elev0){
+  Outlet(dh_label_t depa0, dh_label_t depb0, dh_label_t out_cell0, elev_t out_elev0){
     depa     = depa0;
     depb     = depb0;
     out_cell = out_cell0;
@@ -248,10 +208,10 @@ int ModFloor(int a, int n) {                                                    
 
 
 //Cell is not part of a depression
-const label_t NO_DEP = -1; 
+const dh_label_t NO_DEP = -1; 
 //Cell is part of the ocean and a place from which we begin searching for
 //depressions.
-const label_t OCEAN  = 0;
+const dh_label_t OCEAN  = 0;
 
 
 
@@ -288,25 +248,20 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
   const int    *dx;
   const int    *dy;
   const int    *dinverse;
-  const double *dr;
   int     neighbours;
   if(topo==Topology::D4){
-    dx         = dx4;
-    dy         = dy4;
-    dinverse   = d4inverse;
-    dr         = dr4;
+    dx         = d4x;
+    dy         = d4y;
+    dinverse   = d4_inverse;
     neighbours = 4;
   } else if(topo==Topology::D8){
-    dx         = dx8;
-    dy         = dy8;
-    dinverse   = d8inverse;
-    dr         = dr8;
+    dx         = d8x;
+    dy         = d8y;
+    dinverse   = d8_inverse;
     neighbours = 8;    
   } else {
     throw std::runtime_error("Unrecognised topology!");
   }
-
-  (void)dr; //Hide warning that dr is not used
 
   //Depressions are identified by a number [0,*). The ocean is always
   //"depression" 0. This vector holds the depressions.
@@ -374,7 +329,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
     ++progress;
     const auto my_elev = dem(x,y); //Focal cell's elevation
     bool has_lower     = false;    //Pretend we have no lower neighbours
-    for(int n=0;n<neighbours;n++){ //Check out our neighbours
+    for(int n=1;n<=neighbours;n++){ //Check out our neighbours
       //Use offset to get neighbour x coordinate, wrapping as needed
       // const int nx = ModFloor(x+dx[n],dem.width()); 
       const int nx = x+dx[n];
@@ -484,7 +439,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
     //here.                                                                                             Then I calculate the total volume only when we find an outlet (Good way to test this? Print values of volumes only of those that make the outlet queue? I get some negative values sometimes so I may have done something wrong, but what if it's an 'outlet' at the highest point of the depression?)
 
     //Consider the cell's neighbours
-    for(int n=0;n<neighbours;n++){
+    for(int n=1;n<=neighbours;n++){
       // const int nx = ModFloor(c.x+dx[n],dem.width()); //Get neighbour's x-coordinate using an offset and wrapping
       const int nx = c.x + dx[n];                     //Get neighbour's y-coordinate using an offset
       const int ny = c.y + dy[n];                     //Get neighbour's y-coordinate using an offset
@@ -837,7 +792,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
 //Utility function for doing various relabelings based on the depression
 //hierarchy.
 template<class elev_t>
-void LastLayer(rd::Array2D<label_t> &label, const rd::Array2D<float> &dem, const DepressionHierarchy<elev_t> &depressions){
+void LastLayer(rd::Array2D<dh_label_t> &label, const rd::Array2D<float> &dem, const DepressionHierarchy<elev_t> &depressions){
   #pragma omp parallel for collapse(2)
   for(int y=0;y<label.height();y++)
   for(int x=0;x<label.width();x++){
@@ -853,6 +808,10 @@ void LastLayer(rd::Array2D<label_t> &label, const rd::Array2D<float> &dem, const
     }
     label(x,y) = mylabel;
   }
+}
+
+}
+
 }
 
 #endif

@@ -5,6 +5,9 @@
 #include <string>
 #include <stdexcept>
 
+namespace rd = richdem;
+namespace dh = richdem::dephier;
+
 int main(int argc, char **argv){
   if(argc!=4){
     std::cerr<<"Syntax: "<<argv[0]<<" <Input> <Output> <OutGraph>"<<std::endl;
@@ -20,9 +23,9 @@ int main(int argc, char **argv){
   rd::Array2D<float> topo = LoadData<float>(in_name,std::string("value"));   //Recharge (Percipitation minus Evapotranspiration)
   timer_io.stop();
 
-  rd::Array2D<float>     wtd     (topo.width(), topo.height(), 1000    ); //All cells have some water
-  rd::Array2D<label_t>   label   (topo.width(), topo.height(), NO_DEP ); //No cells are part of a depression
-  rd::Array2D<flowdir_t> flowdirs(topo.width(), topo.height(), NO_FLOW); //No cells flow anywhere
+  rd::Array2D<float>          wtd     (topo.width(), topo.height(), 1000       ); //All cells have some water
+  rd::Array2D<dh::dh_label_t> label   (topo.width(), topo.height(), dh::NO_DEP ); //No cells are part of a depression
+  rd::Array2D<rd::flowdir_t>  flowdirs(topo.width(), topo.height(), rd::NO_FLOW); //No cells flow anywhere
 
   wtd.setNoData(topo.noData());
 
@@ -30,17 +33,17 @@ int main(int argc, char **argv){
   //`GetDepressionHierarchy()`.
   #pragma omp parallel for
   for(unsigned int i=0;i<label.size();i++){
-    if(topo.isNoData(i) || topo(i)==dhflow::OCEAN_LEVEL){ //Ocean Level is assumed to be lower than any other cells (even Death Valley)
-      label(i) = OCEAN;
+    if(topo.isNoData(i) || topo(i)==dh::OCEAN_LEVEL){ //Ocean Level is assumed to be lower than any other cells (even Death Valley)
+      label(i) = dh::OCEAN;
       wtd  (i) = 0;
     }
   }
 
   //Generate flow directions, label all the depressions, and get the hierarchy
   //connecting them
-  auto deps = GetDepressionHierarchy<float,Topology::D8>(topo, label, flowdirs);
+  auto deps = dh::GetDepressionHierarchy<float,rd::Topology::D8>(topo, label, flowdirs);
 
-  dhflow::FlowInDepressionHierarchy(topo, label, flowdirs, deps, wtd);
+  dh::FlowInDepressionHierarchy(topo, label, flowdirs, deps, wtd);
 
   //TODO: Remove. For viewing test cases.
   if(label.width()<1000){
@@ -49,7 +52,7 @@ int main(int argc, char **argv){
     fgraph<<"digraph {\n";
     for(int i=0;i<(int)deps.size();i++){
       fgraph<<i<<" -> "<<deps[i].parent;
-      if(deps[i].parent!=NO_VALUE && (deps[i].parent==OCEAN || !(deps[deps[i].parent].lchild==i || deps[deps[i].parent].rchild==i)))
+      if(deps[i].parent!=dh::NO_VALUE && (deps[i].parent==dh::OCEAN || !(deps[deps[i].parent].lchild==i || deps[deps[i].parent].rchild==i)))
         fgraph<<" [color=\"blue\"]";
       fgraph<<";\n";
     }
