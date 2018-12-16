@@ -905,4 +905,3 @@ void LastLayer(rd::Array2D<label_t> &label, const rd::Array2D<float> &dem, const
 }
 
 #endif
-

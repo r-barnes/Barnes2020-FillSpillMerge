@@ -11,14 +11,11 @@ int main(int argc, char **argv){
     return -1;
   }
 
-  rd::Timer timer_overall;
-  rd::Timer timer_io;
-  timer_overall.start();
-
   const std::string in_name   = argv[1];
   const std::string out_name  = argv[2];
   const std::string out_graph = argv[3];
 
+  rd::Timer timer_io;
   timer_io.start();
   rd::Array2D<float> topo = LoadData<float>(in_name,std::string("value"));   //Recharge (Percipitation minus Evapotranspiration)
   timer_io.stop();
@@ -32,15 +29,18 @@ int main(int argc, char **argv){
   //Label the ocean cells. This is a precondition for using
   //`GetDepressionHierarchy()`.
   #pragma omp parallel for
-  for(unsigned int i=0;i<label.size();i++)
+  for(unsigned int i=0;i<label.size();i++){
     if(topo.isNoData(i) || topo(i)==OCEAN_LEVEL){ //Ocean Level is assumed to be lower than any other cells (even Death Valley)
       label(i) = OCEAN;
       wtd  (i) = 0;
     }
+  }
 
   //Generate flow directions, label all the depressions, and get the hierarchy
   //connecting them
   auto deps = GetDepressionHierarchy<float,Topology::D8>(topo, label, flowdirs);
+
+  FlowInDepressionHierarchy(topo, label, flowdirs, deps, wtd);
 
   //TODO: Remove. For viewing test cases.
   if(label.width()<1000){
@@ -56,38 +56,6 @@ int main(int argc, char **argv){
     fgraph<<"}\n";
   }
 
-  SaveAsNetCDF(topo, out_name+"-topo.nc",       "value");
-  SaveAsNetCDF(label,out_name+"-labels.nc",     "value");
-  SaveAsNetCDF(label,out_name+"-labels_proc.nc","value");
-
-  SurfaceWater(topo, wtd, label,deps,flowdirs);
-
-  std::unordered_map<label_t, label_t> jump_table;
-  Overflow(OCEAN, deps, jump_table);
-  jump_table = std::unordered_map<label_t, label_t>();
-
-  //Sanity checks
-  for(int d=1;d<(int)deps.size();d++){
-    const auto &dep = deps.at(d);
-    assert(dep.water_vol==0 || dep.water_vol<=dep.dep_vol);
-    assert(dep.water_vol==0 || (dep.lchild==NO_VALUE && dep.rchild==NO_VALUE) || (dep.lchild!=NO_VALUE && deps.at(dep.lchild).water_vol<dep.water_vol));
-    assert(dep.water_vol==0 || (dep.lchild==NO_VALUE && dep.rchild==NO_VALUE) || (dep.rchild!=NO_VALUE && deps.at(dep.rchild).water_vol<dep.water_vol));
-  }
-
-  std::cerr<<"\n\n\033[91m#######################Finding Filled\033[39m"<<std::endl;
-  rd::Timer timer_filled;
-  timer_filled.start();
-  Find_filled(OCEAN,deps,topo,label,wtd);                              //This should check everything that is an immediate child of the ocean, so we're supposed to hit all the depressions like this. 
-  std::cerr<<"Fill time = "<<timer_filled.stop()<<" s"<<std::endl;
-
-  SaveAsNetCDF(wtd,out_name+"-wtd.nc","value");
-
-  std::cerr<<"Checking against master..."<<std::endl;
-  rd::Array2D<float> wtd_master("wtd_master.dat", true);   //Recharge (Percipitation minus Evapotranspiration)
-  for(unsigned int i=0;i<wtd.size();i++)
-    assert(wtd(i)==wtd_master(i));
-  std::cerr<<"wtd field matches master!"<<std::endl;
-
   for(unsigned int i=0;i<topo.size();i++)
     if(!topo.isNoData(i))
       wtd(i) += topo(i);
@@ -102,26 +70,7 @@ int main(int argc, char **argv){
     diff(i) = wtd(i)-topo(i);
   SaveAsNetCDF(diff,out_name+"-diff.nc","value");
 
-  for(unsigned int i=0;i<topo.size();i++){
-    if(topo.isNoData(i) && wtd.isNoData(i)){
-      continue;
-    } else if(topo.isNoData(i) || wtd.isNoData(i)) {
-      std::cerr<<topo(i)<<" "<<wtd(i)<<" "<<topo.noData()<<" "<<wtd.noData()<<std::endl;
-      throw std::runtime_error("Unmatched NoData!");
-    } else if(std::abs(topo(i)-wtd(i))<=1e-1) {
-      continue;
-    } else {
-      std::cerr<<std::fixed<<std::setprecision(10)<<topo(i)<<" "<<std::fixed<<std::setprecision(10)<<wtd(i)<<" "<<topo.noData()<<" "<<wtd.noData()<<std::endl;
-      throw std::runtime_error("Elevations differ!");
-    }
-  }
-
-  
-
-
-
   std::cerr<<"Finished"<<std::endl;
-  std::cerr<<"Wall-time = "<<timer_overall.stop()  <<" s"<<std::endl;
   std::cerr<<"IO time   = "<<timer_io.accumulated()<<" s"<<std::endl;
 
   return 0;

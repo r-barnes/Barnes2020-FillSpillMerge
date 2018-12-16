@@ -36,6 +36,44 @@ const float  OCEAN_LEVEL = 0;  //ocean_level in the topo file must be lower than
 
 
 
+  //TODO: 0. Calculate the number of cells within and volume of each depression.   DONE 
+  //This will take place inside of GetDepressionHierarchy.
+ 
+
+  //TODO 1. DONE. Get flow directions for all cells. 
+
+  //TODO 2. Perform a flow accumulation moving water downhill and filling             NEARLY DONE - think about oceans
+  //groundwater as you go. Look at `misc/main.cpp`. Recall that we did this by
+  //counting depressions, finding peaks, and using a queue to control a breadth-
+  //first traversal from the peaks downwards.
+
+  //TODO 3. As part of the above, when flow can't go downhill any farther, add        DONE
+  //it to the `water_vol` for the appropriate depression. Use the labels array
+  //to determine the appropriate depression.
+
+  //TODO 4/5. Perform a depth-first post-order traversal of the depression
+  //hierarchy (start with depressions for which `parent==NO_PARENT`. When you
+  //reach the leaves if `water_vol>dep_vol` then try to overflow into the
+  //neighbouring depression if its `water_vol<dep_vol`. To do so search
+  //neighbour cells of `out_cell` for the lowest cell labeled `odep` and follow
+  //that one's flow path until it terminates. Add excess water to that
+  //depression's `water_vol`. After both child depressions have been visited
+  //they will be finished trying to share their water and their excess water is
+  //added to their parent's `water_vol`. Repeat the overflow attempt.
+
+  //TODO 6: Adjust the hydrologic elevations. If a depression has `water_vol>0`
+  //then all of its child depression are full. What remains is to use a
+  //priority-queue and the Water Level Equation (see dephier.cpp) to find which
+  //cells should be flooded. If a depression is a leaf depression (no children)
+  //then start the PQ at the pit_cell. Otherwise, start at the pit cell of any
+  //child depression since all children are flooded to at least the level of the
+  //`out_elev` connecting the uppermost two children in the hierarchy. Cells
+  //should be added to the queue with elevation equal to at least the `out_elev`
+  //of the depression's children and, if `water_vol<dep_vol` should not exceed
+  //the `out_elev` of the depression itself.
+
+
+
 template<class elev_t>
 void SurfaceWater(
   const rd::Array2D<elev_t>    &topo,
@@ -130,26 +168,10 @@ void SurfaceWater(
   }
   progress.stop();
 
-  std::cerr<<"t Moving water downill = "<<timer.stop()<<" s"<<std::endl;
+  std::cerr<<"t FlowInDepressionHierarchy: Surface water = "<<timer.stop()<<" s"<<std::endl;
 }
 
 
- //TODO: 0. Calculate the number of cells within and volume of each depression.   DONE 
-  //This will take place inside of GetDepressionHierarchy.
- 
-
- //TODO 1. DONE. Get flow directions for all cells. 
-
-  //TODO 2. Perform a flow accumulation moving water downhill and filling             NEARLY DONE - think about oceans
-  //groundwater as you go. Look at `misc/main.cpp`. Recall that we did this by
-  //counting depressions, finding peaks, and using a queue to control a breadth-
-  //first traversal from the peaks downwards.
-
-
-
-  //TODO 3. As part of the above, when flow can't go downhill any farther, add        DONE
-  //it to the `water_vol` for the appropriate depression. Use the labels array
-  //to determine the appropriate depression.
 
 //When water overflows from one depression into another, this function ensures
 //that chained overflows and infiltration take place.
@@ -667,25 +689,56 @@ SubtreeDepressionInfo Find_filled(
   }
 }
 
-  //TODO 4/5. Perform a depth-first post-order traversal of the depression
-  //hierarchy (start with depressions for which `parent==NO_PARENT`. When you
-  //reach the leaves if `water_vol>dep_vol` then try to overflow into the
-  //neighbouring depression if its `water_vol<dep_vol`. To do so search
-  //neighbour cells of `out_cell` for the lowest cell labeled `odep` and follow
-  //that one's flow path until it terminates. Add excess water to that
-  //depression's `water_vol`. After both child depressions have been visited
-  //they will be finished trying to share their water and their excess water is
-  //added to their parent's `water_vol`. Repeat the overflow attempt.
 
-  //TODO 6: Adjust the hydrologic elevations. If a depression has `water_vol>0`
-  //then all of its child depression are full. What remains is to use a
-  //priority-queue and the Water Level Equation (see dephier.cpp) to find which
-  //cells should be flooded. If a depression is a leaf depression (no children)
-  //then start the PQ at the pit_cell. Otherwise, start at the pit cell of any
-  //child depression since all children are flooded to at least the level of the
-  //`out_elev` connecting the uppermost two children in the hierarchy. Cells
-  //should be added to the queue with elevation equal to at least the `out_elev`
-  //of the depression's children and, if `water_vol<dep_vol` should not exceed
-  //the `out_elev` of the depression itself.
+
+template<class elev_t, class wtd_t>
+void FlowInDepressionHierarchy(
+  const rd::Array2D<elev_t>    &topo,
+  const rd::Array2D<label_t>   &label,
+  const rd::Array2D<flowdir_t> &flowdirs,
+  DepressionHierarchy<elev_t>  &deps,
+  rd::Array2D<wtd_t>           &wtd
+){
+  rd::Timer timer_overall;
+  timer_overall.start();
+  
+  SurfaceWater(topo, wtd, label, deps, flowdirs);
+
+  { 
+    //Scope to limit `timer_overflow` and `jump_table`. Also ensures
+    //`jump_table` frees its memory
+    rd::Timer timer_overflow;
+    timer_overflow.start();
+    std::unordered_map<label_t, label_t> jump_table;
+    Overflow(OCEAN, deps, jump_table);
+    std::cerr<<"t FlowInDepressionHierarchy: Overflow time = "<<timer_overflow.stop()<<std::endl;
+  }
+
+  //Sanity checks
+  for(int d=1;d<(int)deps.size();d++){
+    const auto &dep = deps.at(d);
+    assert(dep.water_vol==0 || dep.water_vol<=dep.dep_vol);
+    assert(dep.water_vol==0 || (dep.lchild==NO_VALUE && dep.rchild==NO_VALUE) || (dep.lchild!=NO_VALUE && deps.at(dep.lchild).water_vol<dep.water_vol));
+    assert(dep.water_vol==0 || (dep.lchild==NO_VALUE && dep.rchild==NO_VALUE) || (dep.rchild!=NO_VALUE && deps.at(dep.rchild).water_vol<dep.water_vol));
+  }
+
+  std::cerr<<"p Finding filled..."<<std::endl;
+  rd::Timer timer_filled;
+  timer_filled.start();
+  //This should check everything that is an immediate child of the ocean, so
+  //we're supposed to hit all the depressions like this.
+  Find_filled(OCEAN,deps,topo,label,wtd);                              
+  std::cerr<<"t FlowInDepressionHierarchy: Fill time = "<<timer_filled.stop()<<" s"<<std::endl;
+
+
+  //TODO
+  std::cerr<<"m Checking against master..."<<std::endl;
+  rd::Array2D<float> wtd_master("wtd_master.dat", true);   //Recharge (Percipitation minus Evapotranspiration)
+  for(unsigned int i=0;i<wtd.size();i++)
+    assert(wtd(i)==wtd_master(i));
+  std::cerr<<"m wtd field matches master!"<<std::endl;
+
+  std::cerr<<"t FlowInDepressionHierarchy = "<<timer_overall.stop()<<" s"<<std::endl;
+}
 
 #endif
