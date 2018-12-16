@@ -328,9 +328,9 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
   //begin looking for depressions. We add all of these ocean cells to the
   //priority queue now.
   int ocean_cells = 0;
-  for(int y=0;y<dem.height();y++)                       //add all of the cells
+  for(int y=0;y<dem.height();y++)
   for(int x=0;x<dem.width();x++){
-    if(label(x,y)==OCEAN){                              //if they are ocean cells, put them in the priority queue
+    if(label(x,y)==OCEAN){       //If they are ocean cells, put them in the priority queue
       pq.emplace(x,y,dem(x,y));
       ocean_cells++;
     }
