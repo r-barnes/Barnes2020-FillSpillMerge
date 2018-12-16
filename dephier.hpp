@@ -11,6 +11,7 @@
 #include <richdem/common/Array2D.hpp>
 #include <richdem/common/timer.hpp>
 #include <richdem/common/ProgressBar.hpp>
+#include <richdem/common/grid_cell.hpp>
 #include "DisjointDenseIntSet.hpp"
 #include "../common/netcdf.hpp"
 #include <algorithm>
@@ -76,56 +77,6 @@ const label_t NO_VALUE  = -1;
 //We use an 8-bit signed integer for labeling D4/D8/Rho4/Rho8 flow directions.
 typedef int8_t flowdir_t;
 const flowdir_t NO_FLOW = -1;
-
-
-
-//Used for holding the coordinates of a cell and its associated elevation. This
-//comes in handy for building priority queues. This also keeps track of the
-//order in which the cell was added to the priority queue.
-template<class elev_t>
-class GridCellZk_high {
- public:
-  int32_t x, y; //Location of cell
-  elev_t z;     //Cell's elevation
-  uint64_t k;   //Order in which cell was added to priority queue
-  GridCellZk_high(const int32_t x0, const int32_t y0, const elev_t z0, const uint64_t k0){
-    x = x0;
-    y = y0;
-    z = z0;
-    k = k0;
-  }
-  //This comparison operator is used by the priority queue to order cells, not
-  //for comparing elevation of two cells!
-  bool operator>(const GridCellZk_high& a) const {                                    //I'm confused about what a is here. I see you're returning either the cell with smallest z, or if equal, the cell with the smallest k. But what is a?
-    //`<` sorts the priority queue in reverse (highest cells come off first)
-    //`>` sorts the priority queue such that the lowest cell comes off first
-    //This may seem odd, but it is true. It's because C++ specifies its 
-    //priority queue as a min-heap.
-    if(z==a.z)      //If two or more cells are of equal elevation than the one 
-      return k<a.k; //added last (most recently) is the one that is returned.
-    else
-      return z>a.z; //Otherwise the one that is of lowest elevation comes first
-  }
-};
-
-
-
-//This priority queue returns cells of lowest elevation first. If two or more
-//cells are of equal elevation than the one added last (most recently) is
-//returned.
-template<typename T>
-class GridCellZk_high_pq : public std::priority_queue<GridCellZk_high<T>, std::vector< GridCellZk_high<T> >, std::greater<GridCellZk_high<T> > > {
- private:
-  uint64_t count = 0;
- public:
-  void push(){ //Disable `std::priority_queue::push()` method.
-    //TODO: Is there a way to stop compilation, but only if this function is used?
-    throw std::runtime_error("push() to GridCellZk_high_pq is not allowed!");
-  }
-  void emplace(int32_t x, int32_t y, T z){
-    std::priority_queue<GridCellZk_high<T>, std::vector< GridCellZk_high<T> >, std::greater<GridCellZk_high<T> > >::emplace(x,y,z,++count);       //I get that this is to do with creating the queue, confused on specifics. 
-  }
-};
 
 
 
@@ -371,7 +322,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
   //highest. If two or more cells are of equal elevation then the one added last
   //(most recently) is returned from the queue first. This ensures that a single
   //depression gets all the cells within a flat area.
-  GridCellZk_high_pq<elev_t> pq;                          //pq is the name of the priority queue
+  rd::GridCellZk_high_pq<elev_t> pq;
 
   //We assume the user has already specified a few ocean cells from which to
   //begin looking for depressions. We add all of these ocean cells to the

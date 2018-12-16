@@ -434,7 +434,7 @@ void FillDepressions(
   //of equal elevation the one added most recently is popped first. The ordering
   //of the cells processed by this priority queue need not match the ordering of
   //the cells processed by the depression hierarchy.
-  GridCellZk_high_pq<elev_t> flood_q;                          
+  rd::GridCellZk_high_pq<elev_t> flood_q;                          
 
   { //Scope to limit pit_cell
     //Cell from which we can begin flooding the meta-depression. Which one we
