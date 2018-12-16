@@ -304,7 +304,6 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
     oceandep.pit_elev = -std::numeric_limits<elev_t>::infinity();
     //It's so deep we can't find its bottom
     oceandep.pit_cell = NO_VALUE;
-  //  std::cout<<"ocean dep label"<<oceandep.dep_label<<"  "<<OCEAN<<std::endl;
     oceandep.dep_label = 0;
    // oceandep.parent = 0;
   }
@@ -421,9 +420,6 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
    //   newdep.cell_count = 1;                        //this is a new depression, so it contains one cell, the current (pit) cell.                                                     
       // newdep.dep_vol =                                                                                 we can't do this yet because we don't have the outlet cell yet. 
   //    newdep.dep_sum_elevations = celev;            //I am storing the total sum of all elevations within the depression to use later in the Water Level Equation. So far, the sum of all elevations is this single pit cell. 
-
-
-      // std::cerr<<"\tNew depression from pit cell with label = "<<clabel<<" at "<<c.x<<" "<<c.y<<std::endl;
     } else {
 
       //Cell has already been assigned to a depression. In this case, one of two
