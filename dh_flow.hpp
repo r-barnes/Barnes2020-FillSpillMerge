@@ -22,9 +22,7 @@
 #include <unordered_set>
 #include <utility>
 
-namespace richdem {
-
-namespace dephier {
+namespace richdem::dephier {
 
 const int *const dx         = d8x;
 const int *const dy         = d8y;
@@ -35,66 +33,179 @@ const double FP_ERROR = 1e-4;
 
 const float  OCEAN_LEVEL = 0;  //ocean_level in the topo file must be lower than any non-ocean cell. 
 
-//TODO: Read this
-//We need an efficient way to determine the volume of a depression. To do so, we
-//note that if the outlet of a depression containing cells of elevations
-//$\{a,b,c,d\}$ is known and at elevation $o$, then the volume of the depression
-//is $(o-a)+(o-b)+(o-c)+(o-d)=4o-a-b-c-d=4o-sum(elevations)$. This says that, if
-//we keep track of the number of cells in a depression and their total
-//elevation, it is possible to calculate the volume of a depression at any time
-//based on a hypothetical outlet level. We call this the Water Level Equation.                                                          
-
-//Our strategy will be to keep track of the necessary components of the water
-//level equation for each depression and each outlet. Then as the outlets of
-//depression become known we can use the WLE to calculate their volumes. The
-//volume of a depression is its WLE minus the WLEs of its child depressions.
 
 
-  //TODO: 0. Calculate the number of cells within and volume of each depression.   DONE 
-  //This will take place inside of GetDepressionHierarchy.
- 
-
-  //TODO 1. DONE. Get flow directions for all cells. 
-
-  //TODO 2. Perform a flow accumulation moving water downhill and filling             NEARLY DONE - think about oceans
-  //groundwater as you go. Look at `misc/main.cpp`. Recall that we did this by
-  //counting depressions, finding peaks, and using a queue to control a breadth-
-  //first traversal from the peaks downwards.
-
-  //TODO 3. As part of the above, when flow can't go downhill any farther, add        DONE
-  //it to the `water_vol` for the appropriate depression. Use the labels array
-  //to determine the appropriate depression.
-
-  //TODO 4/5. Perform a depth-first post-order traversal of the depression
-  //hierarchy (start with depressions for which `parent==NO_PARENT`. When you
-  //reach the leaves if `water_vol>dep_vol` then try to overflow into the
-  //neighbouring depression if its `water_vol<dep_vol`. To do so search
-  //neighbour cells of `out_cell` for the lowest cell labeled `odep` and follow
-  //that one's flow path until it terminates. Add excess water to that
-  //depression's `water_vol`. After both child depressions have been visited
-  //they will be finished trying to share their water and their excess water is
-  //added to their parent's `water_vol`. Repeat the overflow attempt.
-
-  //TODO 6: Adjust the hydrologic elevations. If a depression has `water_vol>0`
-  //then all of its child depression are full. What remains is to use a
-  //priority-queue and the Water Level Equation (see dephier.cpp) to find which
-  //cells should be flooded. If a depression is a leaf depression (no children)
-  //then start the PQ at the pit_cell. Otherwise, start at the pit cell of any
-  //child depression since all children are flooded to at least the level of the
-  //`out_elev` connecting the uppermost two children in the hierarchy. Cells
-  //should be added to the queue with elevation equal to at least the `out_elev`
-  //of the depression's children and, if `water_vol<dep_vol` should not exceed
-  //the `out_elev` of the depression itself.
-
-
+///////////////////////////////////
+//Function prototypes
+///////////////////////////////////
 
 template<class elev_t, class wtd_t>
-void MoveWaterIntoPits(
+void FillSpillMerge(
+  const rd::Array2D<elev_t>     &topo,
+  const rd::Array2D<dh_label_t> &label,
+  const rd::Array2D<flowdir_t>  &flowdirs,
+  DepressionHierarchy<elev_t>   &deps,
+  rd::Array2D<wtd_t>            &wtd
+);
+
+template<class elev_t, class wtd_t>
+static void MoveWaterIntoPits(
   const rd::Array2D<elev_t>    &topo,
   rd::Array2D<wtd_t>           &wtd,
   const rd::Array2D<int>       &label,
   DepressionHierarchy<elev_t>  &deps,
   const rd::Array2D<flowdir_t> &flowdirs
+);
+
+template<class elev_t>
+static void MoveWaterInDepHier(
+  int                                         current_depression,
+  DepressionHierarchy<elev_t>                &deps,
+  std::unordered_map<dh_label_t, dh_label_t> &jump_table
+);
+
+template<class elev_t>
+static dh_label_t OverflowInto(
+  const dh_label_t                            root,
+  const dh_label_t                            stop_node,
+  DepressionHierarchy<elev_t>                &deps,
+  std::unordered_map<dh_label_t, dh_label_t> &jump_table,
+  double                                      extra_water
+);
+
+class SubtreeDepressionInfo;
+
+template<class elev_t>
+static SubtreeDepressionInfo FindDepressionsToFill(
+  const int                          current_depression, 
+  const DepressionHierarchy<elev_t> &deps,               
+  const rd::Array2D<float>          &topo,               
+  const rd::Array2D<dh_label_t>     &label,              
+  rd::Array2D<float>                &wtd                 
+);
+
+template<class elev_t, class wtd_t>
+static void FillDepressions(
+  SubtreeDepressionInfo             &stdi,  
+  double                             water_vol, 
+  const DepressionHierarchy<elev_t> &deps,      
+  const rd::Array2D<float>          &topo,      
+  const rd::Array2D<dh_label_t>     &label,     
+  rd::Array2D<wtd_t>                &wtd        
+);
+
+
+
+
+///////////////////////////////////
+//Implementations
+///////////////////////////////////
+
+
+
+///This function routes surface water from into pit cells and then distributes
+///it so that it fills the bottoms of depressions, taking account of overflows.
+///
+///@param topo     Topography used to generate the DepressionHierarchy
+///@param label    Labels from GetDepressionHierarchy indicate which depression 
+///                each cell belongs to.
+///@param flowdirs Flowdirs generated by GetDepressionHierarchy
+///@param deps     The DepressionHierarchy generated by GetDepressionHierarchy
+///@param wtd      Water table depth. Values of 0 indicate saturation. 
+///                Negative values indicate additional water can be added to the
+///                cell. Positive values indicate standing surface water.
+///
+///Note that from GetDepressionHierarchy we already know the number of cells
+///within each depression as well as its volume.
+///
+///@return Modifies the depression hierarchy `deps` to indicate the amount of
+///        water contained in each depression. Modifies `wtd` to indicate how
+///        saturated a cell is or how much standing surface water it has.
+template<class elev_t, class wtd_t>
+void FillSpillMerge(
+  const rd::Array2D<elev_t>     &topo,
+  const rd::Array2D<dh_label_t> &label,
+  const rd::Array2D<flowdir_t>  &flowdirs,
+  DepressionHierarchy<elev_t>   &deps,
+  rd::Array2D<wtd_t>            &wtd
+){
+  rd::Timer timer_overall;
+  timer_overall.start();
+  
+  //We move standing water downhill to the pit cells of each depression
+  MoveWaterIntoPits(topo, label, flowdirs, deps, wtd);
+
+  { 
+    //Scope to limit `timer_overflow` and `jump_table`. Also ensures
+    //`jump_table` frees its memory
+    rd::Timer timer_overflow;
+    timer_overflow.start();
+    std::unordered_map<dh_label_t, dh_label_t> jump_table;
+    //Now that the water is in the pit cells, we move it around so that
+    //depressions which contain too much water overflow into depressions that
+    //have less water. If enough overflow happens, then the water is ultimately
+    //routed to the ocean.
+    MoveWaterInDepHier(OCEAN, deps, jump_table);
+    std::cerr<<"t FlowInDepressionHierarchy: Overflow time = "<<timer_overflow.stop()<<std::endl;
+  }
+
+  //Sanity checks
+  for(int d=1;d<(int)deps.size();d++){
+    const auto &dep = deps.at(d);
+    assert(dep.water_vol==0 || dep.water_vol<=dep.dep_vol);
+    assert(dep.water_vol==0 || (dep.lchild==NO_VALUE && dep.rchild==NO_VALUE) || (dep.lchild!=NO_VALUE && deps.at(dep.lchild).water_vol<dep.water_vol));
+    assert(dep.water_vol==0 || (dep.lchild==NO_VALUE && dep.rchild==NO_VALUE) || (dep.rchild!=NO_VALUE && deps.at(dep.rchild).water_vol<dep.water_vol));
+  }
+
+  std::cerr<<"p Finding filled..."<<std::endl;
+  rd::Timer timer_filled;
+  timer_filled.start();
+  //We start at the ocean, crawl to the bottom of the depression hierarchy and
+  //determine which depressions or metadepressions contain standing water. We
+  //then modify `wtd` in order to distribute this water across the cells of the
+  //depression which will lie below its surface.
+  FindDepressionsToFill(OCEAN,deps,topo,label,wtd);                              
+  std::cerr<<"t FlowInDepressionHierarchy: Fill time = "<<timer_filled.stop()<<" s"<<std::endl;
+
+
+  //TODO
+  std::cerr<<"m Checking against master..."<<std::endl;
+  rd::Array2D<float> wtd_master("wtd_master.dat", true);   //Recharge (Percipitation minus Evapotranspiration)
+  for(unsigned int i=0;i<wtd.size();i++)
+    assert(wtd(i)==wtd_master(i));
+  std::cerr<<"m wtd field matches master!"<<std::endl;
+
+  std::cerr<<"t FlowInDepressionHierarchy = "<<timer_overall.stop()<<" s"<<std::endl;
+}
+
+
+
+///This function works much like a standard flow accumulation algorithm except
+///that as the water moves downhill it contributes to saturating the water table
+///and, when it reaches the pit cell of a depression, all the remaining water is
+///moved into the DepressionHierarchy data structure for rapid flood-spill-merge
+///calculations.
+///
+///@param topo     Topography used to generate the DepressionHierarchy
+///@param label    Labels from GetDepressionHierarchy indicate which depression 
+///                each cell belongs to.
+///@param flowdirs Flowdirs generated by GetDepressionHierarchy
+///@param deps     The DepressionHierarchy generated by GetDepressionHierarchy
+///@param wtd      Water table depth. Values of 0 indicate saturation. 
+///                Negative values indicate additional water can be added to the
+///                cell. Positive values indicate standing surface water.
+///
+///@return Modifies the depression hierarchy `deps` to indicate the amount of
+///        water contained in each LEAF depression. Modifies `wtd` to indicate 
+///        how saturated a cell is. All values in wtd will be <=0 following this
+///        operation.
+template<class elev_t, class wtd_t>
+static void MoveWaterIntoPits(
+  const rd::Array2D<elev_t>    &topo,
+  const rd::Array2D<int>       &label,
+  const rd::Array2D<flowdir_t> &flowdirs,
+  DepressionHierarchy<elev_t>  &deps,
+  rd::Array2D<wtd_t>           &wtd
 ){
   rd::Timer timer;
   rd::ProgressBar progress;
@@ -187,112 +298,48 @@ void MoveWaterIntoPits(
 
 
 
-//When water overflows from one depression into another, this function ensures
-//that chained overflows and infiltration take place.
-//
-//A depression has three places it can put the water it's received.
-//The depression will try to stash water in these three places sequentially.
-//  1. It can store the water in itself
-//  2. It can overflow into its neighbouring depression (by following a geolink to that depression's leaf)
-//  3. It can overflow into its parent
-//
-//Options (2) and (3) result in a recursive call. If there's enough water,
-//eventually repeated calls to (3) will bring the function to the parent of the
-//depression that originally called it (through its neighbour). At this point we
-//stash the water in the parent and exit.
-//
-//Since we might end up calling the function again and again if there's a
-//complex series of overflows, the `jump_table` argument holds the location of
-//where the water ultimately ended up. Everything between the original node and
-//this destination is then full which means that we only traverse each part of a
-//filled hierarchy once.
-//
-//Note that since we only call this function on the leaf nodes of depressions
-//the jump_table only needs to use leaves as its keys.
-//
-//@return The depression where the water ultimately ended up
+
+
+
+
+
+
+
+
+
+
+///At this point all the values of the water table `wtd`, which is not used by
+///this function, are <=0. The excess water, which will eventually become
+///standing surface water, is stored in the DepressionHierarchy itself in the
+///leaf depressions.
+///
+///In this function we will perform a depth-first post-order traversal of the
+///depression hierarchy starting with the OCEAN. When we reach the leaf
+///depressions we check if `water_vol>dep_vol`. If so, we try to overflow into
+///the geographically proximal leaf depression indicaed by our outlet. If there
+///is not sufficient room in the depression linked to by our outlet to hold all
+///the water, then the excess is passed to the depression's parent.
+///
+///Thus, by the time we exit this function, water will have been redistributed
+///from leaf depressions as far up the depression hierarchy as necessary to
+///ensure that there is sufficient volume to hold it. Any excess water is
+///redistributed to the OCEAN, which is unaffected.
+///
+///@param current_depression  We're doing a tree traversal; this is the id of 
+///                           the depression we're currently considering.
+///@param deps                The DepressionHierarchy generated by 
+///                           GetDepressionHierarchy
+///@param jump_table          A data structure that persists throughout the
+///                           traversal and is used to skip from leaf nodes to
+///                           the highest known meta-depression which still has
+///                           unfilled volume. Ensures the traversal happens in
+///                           O(N) time.
+///
+///@return Modifies the depression hierarchy `deps` to indicate the amount of
+///        water in each depression. This information can be used to add
+///        standing surface water to the cells within a depression.
 template<class elev_t>
-dh_label_t OverflowInto(
-  const dh_label_t                            root,
-  const dh_label_t                            stop_node,
-  DepressionHierarchy<elev_t>                &deps,
-  std::unordered_map<dh_label_t, dh_label_t> &jump_table,  //Shortcut from one depression to its next known empty neighbour
-  double                                      extra_water
-){
-  auto &this_dep = deps.at(root);
-
-  //TODO: Could simulate water running down flowpath into depression so that wtd
-  //fills up more realistically
-
-  if(root==OCEAN)                        //We've reached the ocean
-    return OCEAN;                        //Time to stop: there's nowhere higher in the depression hierarchy
-
-  //FIRST PLACE TO STASH WATER: IN THIS DEPRESSION
-
-  //We've gone around in a loop and found the original node's parent. That means
-  //it's time to stop. (This may be the leaf node of another metadepression, the
-  //ocean, or a standard node.)
-  if(root==stop_node){                   //We've made a loop, so everything is full
-    if(this_dep.parent==OCEAN)           //If our parent is the ocean
-      return OCEAN;                      //Then the extra water just goes away
-    else                                 //Otherwise
-      this_dep.water_vol += extra_water; //This node, the original node's parent, gets the extra water
-    return stop_node;
-  }
-
-  if(this_dep.water_vol<this_dep.dep_vol){                                              //Can this depression hold any water?
-    const double capacity = this_dep.dep_vol - this_dep.water_vol;                      //Yes. How much can it hold?
-    if(extra_water<capacity){                                                           //Is it enough to hold all the extra water?
-      this_dep.water_vol  = std::min(this_dep.water_vol+extra_water,this_dep.dep_vol);  //Yup. But let's be careful about floating-point stuff
-      extra_water         = 0;                                                          //No more extra water
-    } else {                                                                            //It wasn't enough to hold all the water
-      this_dep.water_vol = this_dep.dep_vol;                                            //So we fill it all the way.
-      extra_water       -= capacity;                                                    //And have that much less extra water to worry about
-    }
-  }
-
-  if(extra_water==0)                                                                    //If there's no more extra water
-    return root;                                                                        //Call it quits
-
-  //TODO: Use jump table
-
-  //Okay, so there's extra water and we can't fit it into this depression
-
-  //SECOND PLACE TO STASH WATER: IN THIS DEPRESSION'S NEIGHBOUR
-  //Maybe we can fit it into this depression's overflow depression!
-
-  auto &pdep = deps.at(this_dep.parent);
-  if(this_dep.odep==NO_VALUE){      //Does the depression even have such a neighbour? 
-    if(this_dep.parent!=OCEAN && pdep.water_vol==0) //At this point we're full and heading to our parent, so it needs to know that it contains our water
-      pdep.water_vol += this_dep.water_vol;
-    return jump_table[root] = OverflowInto(this_dep.parent, stop_node, deps, jump_table, extra_water);  //Nope. Pass the water to the parent
-  }
-
-  //Can overflow depression hold more water?
-  auto &odep = deps.at(this_dep.odep);
-  if(odep.water_vol<odep.dep_vol){  //Yes. Move the water geographically into that depression's leaf.
-    if(this_dep.parent!=OCEAN && pdep.water_vol==0 && odep.water_vol+extra_water>odep.dep_vol) //It might take a while, but our neighbour will overflow, so our parent needs to know about our water volumes
-      pdep.water_vol += this_dep.water_vol + odep.dep_vol;           //Neighbour's water_vol will equal its dep_vol
-    return jump_table[root] = OverflowInto(this_dep.geolink, stop_node, deps, jump_table, extra_water);
-  }
-
-  //Okay, so the extra water didn't fit into this depression or its overflow
-  //depression. That means we pass it to this depression's parent.
-
-  //If we've got here we have a neighbour, but we couldn't stash water in the
-  //neighbour because it was full. So we need to see if our parent knows about
-  //us.
-  if(this_dep.parent!=OCEAN && pdep.water_vol==0)
-    pdep.water_vol += this_dep.water_vol + odep.water_vol;
-
-  //THIRD PLACE TO STASH WATER: IN THIS DEPRESSION'S PARENT
-  return jump_table[root] = OverflowInto(this_dep.parent, stop_node, deps, jump_table, extra_water);
-}
-
-
-
-template<class elev_t>
-void MoveWaterInDepHier(
+static void MoveWaterInDepHier(
   int                                         current_depression,
   DepressionHierarchy<elev_t>                &deps,
   std::unordered_map<dh_label_t, dh_label_t> &jump_table
@@ -396,10 +443,135 @@ void MoveWaterInDepHier(
   //appropriate values for wtd.
 }
 
- 
 
-//Simple data structure to hold information needed to spread water in a filled
-//metadepression.
+
+//When water overflows from one depression into another, this function ensures
+//that chained overflows and infiltration take place; that is, that water first
+//fills the water table on the path between the two depressions and then moves
+//from leaf depressions to metadepressions.
+//
+//A depression has three places it can put the water it's received.
+//The depression will try to stash water in these three places sequentially.
+//  1. It can store the water in itself
+//  2. It can overflow into its neighbouring depression (by following a geolink to that depression's leaf)
+//  3. It can overflow into its parent
+//
+//Options (2) and (3) result in a recursive call. If there's enough water,
+//eventually repeated calls to (3) will bring the function to the parent of the
+//depression that originally called it (through its neighbour). At this point we
+//stash the water in the parent and exit.
+//
+//Since we might end up calling the function again and again if there's a
+//complex series of overflows, the `jump_table` argument holds the location of
+//where the water ultimately ended up. Everything between the original node and
+//this destination is then full which means that we only traverse each part of a
+//filled hierarchy once.
+//
+//Note that since we only call this function on the leaf nodes of depressions
+//the jump_table only needs to use leaves as its keys.
+//
+//@param root         The depression we're currently considering
+//@param stop_node    When we reach this depression we dump all the excess water
+//                    we're carrying into it. This depression is the parent of 
+//                    the depression that first called this function. Reaching 
+//                    it means that both the original metadepression and its 
+//                    neighbour are both full.
+///@param deps        The DepressionHierarchy generated by 
+///                   GetDepressionHierarchy
+///@param jump_table  A data structure that persists throughout the traversal 
+///                   and is used to skip from leaf nodes to the highest known
+///                   meta-depression which still has unfilled volume. Ensures 
+///                   the traversal happens in O(N) time.
+///@param extra_water The amount of water left to distribute. We'll try to stash
+///                   it in root. If we fail, we'll pass it to root's neighbour
+///                   or, if the neighbour's full, to root's parent.
+//@return The depression where the water ultimately ended up. This is used to
+//        update the jump table
+template<class elev_t>
+static dh_label_t OverflowInto(
+  const dh_label_t                            root,
+  const dh_label_t                            stop_node,
+  DepressionHierarchy<elev_t>                &deps,
+  std::unordered_map<dh_label_t, dh_label_t> &jump_table,  //Shortcut from one depression to its next known empty neighbour
+  double                                      extra_water
+){
+  auto &this_dep = deps.at(root);
+
+  //TODO: Could simulate water running down flowpath into depression so that wtd
+  //fills up more realistically
+
+  if(root==OCEAN)                        //We've reached the ocean
+    return OCEAN;                        //Time to stop: there's nowhere higher in the depression hierarchy
+
+  //FIRST PLACE TO STASH WATER: IN THIS DEPRESSION
+
+  //We've gone around in a loop and found the original node's parent. That means
+  //it's time to stop. (This may be the leaf node of another metadepression, the
+  //ocean, or a standard node.)
+  if(root==stop_node){                   //We've made a loop, so everything is full
+    if(this_dep.parent==OCEAN)           //If our parent is the ocean
+      return OCEAN;                      //Then the extra water just goes away
+    else                                 //Otherwise
+      this_dep.water_vol += extra_water; //This node, the original node's parent, gets the extra water
+    return stop_node;
+  }
+
+  if(this_dep.water_vol<this_dep.dep_vol){                                              //Can this depression hold any water?
+    const double capacity = this_dep.dep_vol - this_dep.water_vol;                      //Yes. How much can it hold?
+    if(extra_water<capacity){                                                           //Is it enough to hold all the extra water?
+      this_dep.water_vol  = std::min(this_dep.water_vol+extra_water,this_dep.dep_vol);  //Yup. But let's be careful about floating-point stuff
+      extra_water         = 0;                                                          //No more extra water
+    } else {                                                                            //It wasn't enough to hold all the water
+      this_dep.water_vol = this_dep.dep_vol;                                            //So we fill it all the way.
+      extra_water       -= capacity;                                                    //And have that much less extra water to worry about
+    }
+  }
+
+  if(extra_water==0)                                                                    //If there's no more extra water
+    return root;                                                                        //Call it quits
+
+  //TODO: Use jump table
+
+  //Okay, so there's extra water and we can't fit it into this depression
+
+  //SECOND PLACE TO STASH WATER: IN THIS DEPRESSION'S NEIGHBOUR
+  //Maybe we can fit it into this depression's overflow depression!
+
+  auto &pdep = deps.at(this_dep.parent);
+  if(this_dep.odep==NO_VALUE){      //Does the depression even have such a neighbour? 
+    if(this_dep.parent!=OCEAN && pdep.water_vol==0) //At this point we're full and heading to our parent, so it needs to know that it contains our water
+      pdep.water_vol += this_dep.water_vol;
+    return jump_table[root] = OverflowInto(this_dep.parent, stop_node, deps, jump_table, extra_water);  //Nope. Pass the water to the parent
+  }
+
+  //Can overflow depression hold more water?
+  auto &odep = deps.at(this_dep.odep);
+  if(odep.water_vol<odep.dep_vol){  //Yes. Move the water geographically into that depression's leaf.
+    if(this_dep.parent!=OCEAN && pdep.water_vol==0 && odep.water_vol+extra_water>odep.dep_vol) //It might take a while, but our neighbour will overflow, so our parent needs to know about our water volumes
+      pdep.water_vol += this_dep.water_vol + odep.dep_vol;           //Neighbour's water_vol will equal its dep_vol
+    return jump_table[root] = OverflowInto(this_dep.geolink, stop_node, deps, jump_table, extra_water);
+  }
+
+  //Okay, so the extra water didn't fit into this depression or its overflow
+  //depression. That means we pass it to this depression's parent.
+
+  //If we've got here we have a neighbour, but we couldn't stash water in the
+  //neighbour because it was full. So we need to see if our parent knows about
+  //us.
+  if(this_dep.parent!=OCEAN && pdep.water_vol==0)
+    pdep.water_vol += this_dep.water_vol + odep.water_vol;
+
+  //THIRD PLACE TO STASH WATER: IN THIS DEPRESSION'S PARENT
+  return jump_table[root] = OverflowInto(this_dep.parent, stop_node, deps, jump_table, extra_water);
+}
+
+
+
+//When we're determine which depressions to spread standing surface water
+//across, we need to know a leaf depression to start filling from and the
+//metadepression that contains all of the water. We also need to know all the
+//depressions across which we're allowed to spread water. This data structure
+//keeps track of this information.
 class SubtreeDepressionInfo {
  public:
   //One of the depressions at the bottom of the meta-depression. We use this to
@@ -418,17 +590,155 @@ class SubtreeDepressionInfo {
 
 
 
+///This function recursively traverses the depression hierarchy until it reaches
+///a leaf depression. It then starts climbing back up. If a leaf depression is
+///full, it notes the leaf depression's id. This a potential place to start
+///trying to flood a metadepression.
+///
+///At higher levels if both of a metadepression's children are full, then the
+///metadepression makes a note of the ids of all the depressions contained
+///within their subtrees. It also chooses arbitrarily one of the leaf
+///depressions to start flooding from (since both children are full, the choice
+///of a starting point for flooding doesn't matter).
+///
+///Eventually, a metadepression is reached which has more volume than water. At
+///this point a helper function `FillDepressions()` is called. This is passed
+///the ids of the arbitrarily chosen leaf depression, the partially-filled
+///metadepression, and all the depressions in between. It then modifies the
+///water table so that standing water rises to its natural level within the
+///partially-filled metadepression.
+///
+///@param current_depression  The depression we're currently considering
+///@param deps     The DepressionHierarchy generated by GetDepressionHierarchy
+///@param topo     Topography used to generate the DepressionHierarchy
+///@param label    Labels from GetDepressionHierarchy indicate which depression 
+///                each cell belongs to.
+///@param wtd      Water table depth. Values of 0 indicate saturation. 
+///                Negative values indicate additional water can be added to the
+///                cell. Positive values indicate standing surface water.
+///@return Information about the subtree: its leaf node, depressions it 
+///        contains, and its root node.
+template<class elev_t>
+static SubtreeDepressionInfo FindDepressionsToFill(
+  const int                          current_depression,    //Depression we are currently in
+  const DepressionHierarchy<elev_t> &deps,                  //Depression hierarchy
+  const rd::Array2D<float>          &topo,                  //Topographic data (used for determinining volumes as we're spreading stuff)
+  const rd::Array2D<dh_label_t>     &label,                 //Array indicating which leaf depressions each cell belongs to
+  rd::Array2D<float>                &wtd                    //Water table depth
+){
+  //Stop when we reach one level below the leaves
+  if(current_depression==NO_VALUE)
+    return SubtreeDepressionInfo();
+
+  const auto& this_dep = deps.at(current_depression);
+
+  //We start by visiting all of the ocean-linked depressions. They don't need to
+  //pass us anything because their water has already been transferred to this
+  //metadepression tree by MoveWaterInDepHier(). Similar, it doesn't mater what their leaf
+  //labels are since we will never spread water into them.
+  for(const auto c: this_dep.ocean_linked)
+    FindDepressionsToFill(c, deps, topo, label, wtd);
+
+  //At this point we've visited all of the ocean-linked depressions. Since all
+  //depressions link to the ocean and the ocean has no children, this means we
+  //have visited all the depressions and spread their water. Since we don't wish
+  //to modify the ocean, we are done.
+  if(current_depression==OCEAN)
+    return SubtreeDepressionInfo();
+
+  //We visit both of the children. We need to keep track of info from these
+  //because we may spread water across them.
+  SubtreeDepressionInfo left_info  = FindDepressionsToFill(this_dep.lchild, deps, topo, label, wtd);
+  SubtreeDepressionInfo right_info = FindDepressionsToFill(this_dep.rchild, deps, topo, label, wtd);   
+
+  SubtreeDepressionInfo combined;
+  combined.my_labels.emplace(current_depression);
+  combined.my_labels.merge(left_info.my_labels);
+  combined.my_labels.merge(right_info.my_labels);
+
+  combined.leaf_label = left_info.leaf_label;  //Choose left because right is not guaranteed to exist
+  if(combined.leaf_label==NO_VALUE)            //If there's no label, then there was no child
+    combined.leaf_label = current_depression;  //Therefore, this is a leaf depression
+
+  combined.top_label = current_depression;
+
+  //The water volume should never be greater than the depression volume because
+  //otherwise we would have overflowed the water into the neighbouring
+  //depression and moved the excess to the parent.
+  assert(this_dep.water_vol<=this_dep.dep_vol);
+
+  //Since depressions store their marginal water volumes, if a parent depression
+  //has 0 marginal water volume, then both of its children have sufficient
+  //depression volume to store all of their water. However, if our parent is an
+  //ocean-link then we are guaranteed to be able to fill now because excess
+  //water will have been transferred into the parent and we don't want to pool
+  //the parent's water with our own (it might be at the bottom of a cliff).
+
+  if(this_dep.water_vol<this_dep.dep_vol || this_dep.ocean_parent){
+    assert(this_dep.water_vol<=this_dep.dep_vol);
+
+    //If both of a depression's children have already spread their water, we do not
+    //want to attempt to do so again in an empty parent depression. 
+    //We check to see if both children have finished spreading water. 
+
+    FillDepressions(combined, this_dep.water_vol, deps, topo, label, wtd);
+
+    //At this point there should be no more water all the way up the tree until
+    //we pass through an ocean link, so we pass this up as a kind of null value.
+    return SubtreeDepressionInfo();
+  } else {
+    return combined;
+  }
+}
+
+
+
+
+
+
+
+
+///This function adjusts the water table to reflect standing surface water that
+///has pooled at the bottom of depressions.
+///
+///At this point we know the id of an arbitrarily-chosen leaf depression and the
+///id of the metadepression across which we will spread the water.
+///
+///Starting at the pit cell of the leaf depression we use a priority queue to
+///climb from the lowest cells to the highest cell. For each cell we determine
+///how much volume is contained within the depression if it were flooded to the
+///level of this cell. If the volume is sufficent, we do the flooding.
+///
+///Therefore, we need an efficient way to determine the volume of a depression.
+///To do so, we note that if the elevation of the current cell is $o$ and a
+///depression contains cells of elevations $\{a,b,c,d\}$, then the volume of the
+///depression is $(o-a)+(o-b)+(o-c)+(o-d)=4o-a-b-c-d=4o-sum(elevations)$. Thus,
+///if we keep track of the number of cells in a depression and their total
+///elevation, it is possible to calculate the volume of a depression at any time
+///based on a hypothetical outlet level. We call this the Water Level Equation.
+///
+///@param stdi     Leaf node, metadepression, depressions between. Determines 
+///                the extent of the flooding.
+///@param water_vol How much water needs to be spread throughout the depression
+///@param deps     The DepressionHierarchy generated by GetDepressionHierarchy
+///@param topo     Topography used to generate the DepressionHierarchy
+///@param label    Labels from GetDepressionHierarchy indicate which depression 
+///                each cell belongs to.
+///@param wtd      Water table depth. Values of 0 indicate saturation. 
+///                Negative values indicate additional water can be added to the
+///                cell. Positive values indicate standing surface water.
+///@return         N/A
 template<class elev_t, class wtd_t>
-void FillDepressions(
+static void FillDepressions(
   //Identifies a meta-depression through which water should be spread, leaf node
-  //from which the water should be spread, valid depressions across which water
-  //can spread, and the amount of water to spread
+  //from which the water should be spread, and valid depressions across which
+  //water can spread.
   SubtreeDepressionInfo             &stdi,  
   double                             water_vol, //Amount of water to spread around this depression
-  const DepressionHierarchy<elev_t> &deps,  //Depression hierarchy
-  const rd::Array2D<float>          &topo,  //Topographic data for calculating marginal volumes as we attempt to spread water
-  const rd::Array2D<dh_label_t>     &label, //2D array in which each cell is labeled with the leaf depression it belongs to
-  rd::Array2D<wtd_t>                &wtd    //Water table depth: we transfer water into this
+  const DepressionHierarchy<elev_t> &deps,      //Depression hierarchy
+  const rd::Array2D<float>          &topo,      //Topographic data for calculating marginal volumes as we attempt to spread water
+  const rd::Array2D<dh_label_t>     &label,     //2D array in which each cell is labeled with the leaf depression it belongs to
+  rd::Array2D<wtd_t>                &wtd        //Water table depth: we transfer water into this
 ){
   //Nothing to do if we have no water
   if(water_vol==0)
@@ -626,135 +936,6 @@ void FillDepressions(
   //somewhere. :-(
 
   throw std::runtime_error("PQ loop exited without filling a depression!");
-}
-
-
-
-template<class elev_t>
-SubtreeDepressionInfo FindDepressionsToFill(
-  const int                          current_depression,    //Depression we are currently in
-  const DepressionHierarchy<elev_t> &deps,                  //Depression hierarchy
-  const rd::Array2D<float>          &topo,                  //Topographic data (used for determinining volumes as we're spreading stuff)
-  const rd::Array2D<dh_label_t>     &label,                 //Array indicating which leaf depressions each cell belongs to
-  rd::Array2D<float>                &wtd                    //Water table depth
-){
-  //Stop when we reach one level below the leaves
-  if(current_depression==NO_VALUE)
-    return SubtreeDepressionInfo();
-
-  const auto& this_dep = deps.at(current_depression);
-
-  //We start by visiting all of the ocean-linked depressions. They don't need to
-  //pass us anything because their water has already been transferred to this
-  //metadepression tree by MoveWaterInDepHier(). Similar, it doesn't mater what their leaf
-  //labels are since we will never spread water into them.
-  for(const auto c: this_dep.ocean_linked)
-    FindDepressionsToFill(c, deps, topo, label, wtd);
-
-  //At this point we've visited all of the ocean-linked depressions. Since all
-  //depressions link to the ocean and the ocean has no children, this means we
-  //have visited all the depressions and spread their water. Since we don't wish
-  //to modify the ocean, we are done.
-  if(current_depression==OCEAN)
-    return SubtreeDepressionInfo();
-
-  //We visit both of the children. We need to keep track of info from these
-  //because we may spread water across them.
-  SubtreeDepressionInfo left_info  = FindDepressionsToFill(this_dep.lchild, deps, topo, label, wtd);
-  SubtreeDepressionInfo right_info = FindDepressionsToFill(this_dep.rchild, deps, topo, label, wtd);   
-
-  SubtreeDepressionInfo combined;
-  combined.my_labels.emplace(current_depression);
-  combined.my_labels.merge(left_info.my_labels);
-  combined.my_labels.merge(right_info.my_labels);
-
-  combined.leaf_label = left_info.leaf_label;  //Choose left because right is not guaranteed to exist
-  if(combined.leaf_label==NO_VALUE)            //If there's no label, then there was no child
-    combined.leaf_label = current_depression;  //Therefore, this is a leaf depression
-
-  combined.top_label = current_depression;
-
-  //The water volume should never be greater than the depression volume because
-  //otherwise we would have overflowed the water into the neighbouring
-  //depression and moved the excess to the parent.
-  assert(this_dep.water_vol<=this_dep.dep_vol);
-
-  //Since depressions store their marginal water volumes, if a parent depression
-  //has 0 marginal water volume, then both of its children have sufficient
-  //depression volume to store all of their water. However, if our parent is an
-  //ocean-link then we are guaranteed to be able to fill now because excess
-  //water will have been transferred into the parent and we don't want to pool
-  //the parent's water with our own (it might be at the bottom of a cliff).
-
-  if(this_dep.water_vol<this_dep.dep_vol || this_dep.ocean_parent){
-    assert(this_dep.water_vol<=this_dep.dep_vol);
-
-    //If both of a depression's children have already spread their water, we do not
-    //want to attempt to do so again in an empty parent depression. 
-    //We check to see if both children have finished spreading water. 
-
-    FillDepressions(combined, this_dep.water_vol, deps, topo, label, wtd);
-
-    //At this point there should be no more water all the way up the tree until
-    //we pass through an ocean link, so we pass this up as a kind of null value.
-    return SubtreeDepressionInfo();
-  } else {
-    return combined;
-  }
-}
-
-
-
-template<class elev_t, class wtd_t>
-void FlowInDepressionHierarchy(
-  const rd::Array2D<elev_t>     &topo,
-  const rd::Array2D<dh_label_t> &label,
-  const rd::Array2D<flowdir_t>  &flowdirs,
-  DepressionHierarchy<elev_t>   &deps,
-  rd::Array2D<wtd_t>            &wtd
-){
-  rd::Timer timer_overall;
-  timer_overall.start();
-  
-  MoveWaterIntoPits(topo, wtd, label, deps, flowdirs);
-
-  { 
-    //Scope to limit `timer_overflow` and `jump_table`. Also ensures
-    //`jump_table` frees its memory
-    rd::Timer timer_overflow;
-    timer_overflow.start();
-    std::unordered_map<dh_label_t, dh_label_t> jump_table;
-    MoveWaterInDepHier(OCEAN, deps, jump_table);
-    std::cerr<<"t FlowInDepressionHierarchy: Overflow time = "<<timer_overflow.stop()<<std::endl;
-  }
-
-  //Sanity checks
-  for(int d=1;d<(int)deps.size();d++){
-    const auto &dep = deps.at(d);
-    assert(dep.water_vol==0 || dep.water_vol<=dep.dep_vol);
-    assert(dep.water_vol==0 || (dep.lchild==NO_VALUE && dep.rchild==NO_VALUE) || (dep.lchild!=NO_VALUE && deps.at(dep.lchild).water_vol<dep.water_vol));
-    assert(dep.water_vol==0 || (dep.lchild==NO_VALUE && dep.rchild==NO_VALUE) || (dep.rchild!=NO_VALUE && deps.at(dep.rchild).water_vol<dep.water_vol));
-  }
-
-  std::cerr<<"p Finding filled..."<<std::endl;
-  rd::Timer timer_filled;
-  timer_filled.start();
-  //This should check everything that is an immediate child of the ocean, so
-  //we're supposed to hit all the depressions like this.
-  FindDepressionsToFill(OCEAN,deps,topo,label,wtd);                              
-  std::cerr<<"t FlowInDepressionHierarchy: Fill time = "<<timer_filled.stop()<<" s"<<std::endl;
-
-
-  //TODO
-  std::cerr<<"m Checking against master..."<<std::endl;
-  rd::Array2D<float> wtd_master("wtd_master.dat", true);   //Recharge (Percipitation minus Evapotranspiration)
-  for(unsigned int i=0;i<wtd.size();i++)
-    assert(wtd(i)==wtd_master(i));
-  std::cerr<<"m wtd field matches master!"<<std::endl;
-
-  std::cerr<<"t FlowInDepressionHierarchy = "<<timer_overall.stop()<<" s"<<std::endl;
-}
-
 }
 
 }

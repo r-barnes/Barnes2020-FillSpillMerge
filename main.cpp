@@ -43,7 +43,7 @@ int main(int argc, char **argv){
   //connecting them
   auto deps = dh::GetDepressionHierarchy<float,rd::Topology::D8>(topo, label, flowdirs);
 
-  dh::FlowInDepressionHierarchy(topo, label, flowdirs, deps, wtd);
+  dh::FillSpillMerge(topo, label, flowdirs, deps, wtd);
 
   //TODO: Remove. For viewing test cases.
   if(label.width()<1000){
