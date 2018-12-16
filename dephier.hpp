@@ -1,10 +1,3 @@
-//Problems: 
-//1 - I am getting negative volumes. Don't know why. 
-//2 - All of the volumes, when I print them, are showing as whole numbers (integers). Don't know if this is because of how the data is being read in or if I am accidentally losing precision on these values somewhere. 
-
-
-
-
 #ifndef _dephier_hpp_
 #define _dephier_hpp_
 
@@ -101,22 +94,6 @@ class Depression {
 
 
 
-//TODO: Read this
-//We need an efficient way to determine the volume of a depression. To do so, we
-//note that if the outlet of a depression containing cells of elevations
-//$\{a,b,c,d\}$ is known and at elevation $o$, then the volume of the depression
-//is $(o-a)+(o-b)+(o-c)+(o-d)=4o-a-b-c-d=4o-sum(elevations)$. This says that, if
-//we keep track of the number of cells in a depression and their total
-//elevation, it is possible to calculate the volume of a depression at any time
-//based on a hypothetical outlet level. We call this the Water Level Equation.                                                          
-
-//Our strategy will be to keep track of the necessary components of the water
-//level equation for each depression and each outlet. Then as the outlets of
-//depression become known we can use the WLE to calculate their volumes. The
-//volume of a depression is its WLE minus the WLEs of its child depressions.
-
-
-
 //A key part of the algorithm is keeping track of the outlets which connect
 //depressions. While each depression has only one outlet, a depression may have
 //many inlets. All of the outlets and inlets taken together form a graph which
@@ -149,26 +126,14 @@ class Outlet {
   //Elevation of the cell linking A and B
   elev_t  out_elev = std::numeric_limits<elev_t>::infinity();
 
-//  double depa_vol = 0;    //volume and number of cells in each of the two depressions linked by this outlet. 
-//  double depb_vol = 0;
-//  int depa_cells = 0;
-//  int depb_cells = 0;
-
-  //TODO: Each outlet should also track the number of cells contained in the
-  //depression and the volume of the depression - DONE! (I think)
-
   Outlet() = default;
 
   //Standard issue constructor
   Outlet(dh_label_t depa0, dh_label_t depb0, dh_label_t out_cell0, elev_t out_elev0){
-    depa     = depa0;
-    depb     = depb0;
-    out_cell = out_cell0;
-    out_elev = out_elev0;
-  //  depa_vol = depa_vol0;
-    //depb_vol = depb_vol0;
-   // depa_cells = depa_cells0;
-    //depb_cells = depb_cells0;
+    depa       = depa0;
+    depb       = depb0;
+    out_cell   = out_cell0;
+    out_elev   = out_elev0;
   }
 
   //Determines whether one outlet is the same as another. Note that we do not
@@ -201,7 +166,7 @@ struct OutletHash {
 //The regular mod function allows negative numbers to stay negative. This mod
 //function wraps negative numbers around. For instance, if a=-1 and n=100, then
 //the result is 99.
-int ModFloor(int a, int n) {                                                              //why? Is this for east-west joining?
+int ModFloor(int a, int n) {
   return ((a % n) + n) % n;
 }
 
@@ -305,7 +270,6 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
     //It's so deep we can't find its bottom
     oceandep.pit_cell = NO_VALUE;
     oceandep.dep_label = 0;
-   // oceandep.parent = 0;
   }
 
 
@@ -351,7 +315,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
 
 
 
-  //The priority queue now contains all of the ocean cells as well as all of the                        //a little confused about the inclusion of ocean cells here. I get they're acting as depression cells, but if they have a -inf elevation, do we have to pull them all from the queue? I guess we have to deal with all cells that flow into the ocean, but I feel there must be a better way to get rid of deep-ocean cells that are far from the coast. 
+  //The priority queue now contains all of the ocean cells as well as all of the
   //pit cells. We will now proceed through the cells by always pulling the cell
   //of lowest elevation from the priority queue. This ensures that, when we find
   //an outlet between two depressions, it is always the lowest outlet linking
@@ -411,15 +375,12 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
       //accordingly. Not all the pit cells originally added will form new
       //depressions as flat cells will relabel their neighbours and the first                                                 
       //cell found in a flat determines the label for the entirety of that flat.
-      clabel          = depressions.size();         //In a 0-based indexing system, size is equal to the id of the next flat
-      auto &newdep    = depressions.emplace_back(); //Add the next flat (increases size by 1)
-      newdep.pit_cell = dem.xyToI(c.x,c.y);         //Make a note of the pit cell's location
-      newdep.pit_elev = celev;                      //Make a note of the pit cell's elevation
-      newdep.dep_label = clabel;                    //I am storing the label in the object so that I can find it later and call up the number of cells and volume (better way of doing this?) -- I have since realised I can use the index in the depressions array. So perhaps the label is no longer needed?
-      label(ci)       = clabel;                     //Update cell with new label                                                           
-   //   newdep.cell_count = 1;                        //this is a new depression, so it contains one cell, the current (pit) cell.                                                     
-      // newdep.dep_vol =                                                                                 we can't do this yet because we don't have the outlet cell yet. 
-  //    newdep.dep_sum_elevations = celev;            //I am storing the total sum of all elevations within the depression to use later in the Water Level Equation. So far, the sum of all elevations is this single pit cell. 
+      clabel            = depressions.size();         //In a 0-based indexing system, size is equal to the id of the next flat
+      auto &newdep      = depressions.emplace_back(); //Add the next flat (increases size by 1)
+      newdep.pit_cell   = dem.xyToI(c.x,c.y);         //Make a note of the pit cell's location
+      newdep.pit_elev   = celev;                      //Make a note of the pit cell's elevation
+      newdep.dep_label  = clabel;                     //I am storing the label in the object so that I can find it later and call up the number of cells and volume (better way of doing this?) -- I have since realised I can use the index in the depressions array. So perhaps the label is no longer needed?
+      label(ci)         = clabel;                     //Update cell with new label                                                           
     } else {
 
       //Cell has already been assigned to a depression. In this case, one of two
@@ -427,12 +388,9 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
       //case the cell has neighbours which have not yet been seen. (2) This cell
       //was part of a flat which has previously been processed by a wavefront
       //beginning at some other cell. In this case, all of this cell's
-      //neighbours will have already been seen and added to the priority queue.                           //not so harmless if we need to do the volume the way I think we do... by adding the elevation of each cell as it is processed, meaning it'll be a problem if any given cell is processed more than once. 
+      //neighbours will have already been seen and added to the priority queue.   
       //However, it is harmless to check on them again.
     }
-
-    //TODO: Update the appropriate depression's cell_count and dep_vol variables                        I did this in the else if above, and then in the if and the else below. I add a cell to the count whenever it is added to the depression and add its elevation to the total elevations.
-    //here.                                                                                             Then I calculate the total volume only when we find an outlet (Good way to test this? Print values of volumes only of those that make the outlet queue? I get some negative values sometimes so I may have done something wrong, but what if it's an 'outlet' at the highest point of the depression?)
 
     //Consider the cell's neighbours
     for(int n=1;n<=neighbours;n++){
@@ -443,17 +401,15 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
         continue;                                     //Nope: out of bounds.
       const auto ni     = dem.xyToI(nx,ny);           //Flat index of neighbour
       const auto nlabel = label(ni);                  //Label of neighbour
-  //    const auto nelev = dem(ni);                     //elevation of neighbour, for water level equation
 
-
-      if(nlabel==NO_DEP){                             //Neighbour has not been visited yet                    Okay - it looks like we only add things to the queue that haven't been labelled yet. So that means no given cell should be processed twice, right?                                                 
+      if(nlabel==NO_DEP){                             //Neighbour has not been visited yet 
         label(ni) = clabel;                           //Give the neighbour my label
         pq.emplace(nx,ny,dem(ni));                    //Add the neighbour to the priority queue
         flowdirs(nx,ny) = dinverse[n];                //Neighbour flows in the direction of this cell
       } else if (nlabel==clabel) {
         //Skip because we are not interested in ourself. That would be vain.
         //Note that this case will come up frequently as we traverse flats since
-        //the first cell to be visited in a flat labels all the cells in the                                              //how and where does it do so? Can we either stop it from doing so or make some other accommodation for volume calculation?
+        //the first cell to be visited in a flat labels all the cells in the
         //flat like itself. All of the other cells in the flat will come off of
         //the priority queue later and, in looking at their neighbours, reach
         //this point.
@@ -464,29 +420,11 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
         //the depression. The outlet is the higher of the two.
         auto out_cell = ci;    //Pretend focal cell is the outlet
         auto out_elev = celev; //Note its height
- //       double a_vol = 0;                               //volumes of the two depressions up to this outlet. 
-   //     double b_vol = 0;
-     //   auto a_cells = 0;
-       // auto b_cells = 0;
-
 
         if(dem(ni)>out_elev){  //Check to see if we were wrong and the neighbour cell is higher.
           out_cell = ni;       //Neighbour cell was higher. Note it.
           out_elev = dem(ni);  //Note neighbour's elevation
         }
-
-        //TODO: Make a note of the depression's current number of cells and
-        //volume                                                                                          --> Done below. 
-
-  //      a_vol = depressions[clabel].cell_count * out_elev - depressions[clabel].dep_sum_elevations;
-    //    b_vol = depressions[nlabel].cell_count * out_elev - depressions[nlabel].dep_sum_elevations;
-
-      //  a_cells = depressions[clabel].cell_count;
-        //b_cells = depressions[nlabel].cell_count;
-
-        
-    //    outlet_database.emplace(clabel,nlabel,out_cell,out_elev,a_vol,b_vol,a_cells,b_cells);                           //I am NO LONGER getting negative volumes! Hooray! However, we should only do this when we actually reach the outlet cell at its turn in the priority queue. How to do so? 
-        
 
         //We've found an outlet between two depressions. Now we need to
         //determine if it is the lowest outlet between the two.
@@ -634,8 +572,6 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
       //Get a reference to Depression A MetaLabel.
       auto &dep = depressions.at(depa_set);
 
-      //TODO: Calculate a final cell count and "volume" for the depression                                                -->Each outlet has recorded the cell count and volume for its two depressions. So what would we want here? The totals for metadepressions? 
-
       //If this depression has already found the ocean then don't merge it
       //again. (TODO: Richard)
       // if(dep.out_cell==OCEAN)
@@ -676,8 +612,6 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
       depa.geolink  = outlet.depb;     //Meta(A) overflows, geographically, into B
       depb.geolink  = outlet.depa;     //Meta(B) overflows, geographically, into A
 
-      //TODO: Calculate final cell counts and true dep_vols for each depression                                             Surely each depression already has its own final cell count and volume, and since we now have a NEW metadepression, we only need to store that info for the new one?
-   
       //Be sure that this happens AFTER we are done using the `depa` and `depb`
       //references since they will be invalidated if `depressions` has to
       //resize!
@@ -691,8 +625,6 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
 
       djset.mergeAintoB(depa_set, newlabel); //A has a parent now
       djset.mergeAintoB(depb_set, newlabel); //B has a parent now
-   //   newdep.cell_count = outlet.depa_cells + outlet.depb_cells;                                        //getting the cell count and volume for the new metadepression. 
-    //  newdep.dep_vol = outlet.depa_vol + outlet.depb_vol;                             
     }
   }
   progress.stop();
@@ -704,7 +636,6 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
 
   //The labels array has been modified in place. The depression hierarchy is
   //returned.
-
 
   std::cerr<<"p Calculating depression marginal volumes..."<<std::endl;
 
