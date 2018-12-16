@@ -30,7 +30,7 @@ int main(int argc, char **argv){
   //`GetDepressionHierarchy()`.
   #pragma omp parallel for
   for(unsigned int i=0;i<label.size();i++){
-    if(topo.isNoData(i) || topo(i)==OCEAN_LEVEL){ //Ocean Level is assumed to be lower than any other cells (even Death Valley)
+    if(topo.isNoData(i) || topo(i)==dhflow::OCEAN_LEVEL){ //Ocean Level is assumed to be lower than any other cells (even Death Valley)
       label(i) = OCEAN;
       wtd  (i) = 0;
     }
@@ -40,7 +40,7 @@ int main(int argc, char **argv){
   //connecting them
   auto deps = GetDepressionHierarchy<float,Topology::D8>(topo, label, flowdirs);
 
-  FlowInDepressionHierarchy(topo, label, flowdirs, deps, wtd);
+  dhflow::FlowInDepressionHierarchy(topo, label, flowdirs, deps, wtd);
 
   //TODO: Remove. For viewing test cases.
   if(label.width()<1000){
