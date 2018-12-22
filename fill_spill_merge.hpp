@@ -935,6 +935,8 @@ static void FillDepressions(
   //Therefore, if we've reached this point, something has gone horribly wrong
   //somewhere. :-(
 
+  // std::cerr<<"E PQ loop exited without filling a depression!"<<std::endl;
+
   throw std::runtime_error("PQ loop exited without filling a depression!");
 }
 
