@@ -697,12 +697,11 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
 
     auto &dep = depressions.at(d);
     if(dep.lchild!=NO_VALUE){
-      assert(dep.lchild<d);
+      assert(dep.rchild!=NO_VALUE); //Either no children or two children
+      assert(dep.lchild<d);         //ID of child must be smaller than parent's
+      assert(dep.rchild<d);         //ID of child must be smaller than parent's
       dep.cell_count      += depressions.at(dep.lchild).cell_count;
       dep.total_elevation += depressions.at(dep.lchild).total_elevation;
-    }
-    if(dep.rchild!=NO_VALUE){
-      assert(dep.rchild<d);
       dep.cell_count      += depressions.at(dep.rchild).cell_count;
       dep.total_elevation += depressions.at(dep.rchild).total_elevation;
     }
@@ -710,6 +709,8 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
     //clauses have additional volume above their spill elevations that cannot be
     //counted simply by adding their volumes to their parent depression.
     dep.dep_vol = dep.cell_count*dep.out_elev-dep.total_elevation;
+
+    assert(dep.lchild==NO_VALUE || depressions.at(dep.lchild).dep_vol+depressions.at(dep.rchild).dep_vol<=dep.dep_vol);
   }
   progress.stop();
 
