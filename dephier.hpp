@@ -244,6 +244,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
   //depression gets all the cells within a flat area.
   rd::GridCellZk_high_pq<elev_t> pq;
 
+  std::cerr<<"p Adding ocean cells to priority-queue..."<<std::endl;
   //We assume the user has already specified a few ocean cells from which to
   //begin looking for depressions. We add all of these ocean cells to the
   //priority queue now.
