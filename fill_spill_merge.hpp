@@ -807,7 +807,7 @@ static void FillDepressions(
     //Current volume of this subset of the metadepression. Since we might climb
     //over a saddle point, this value can occasionally be negative. It will be
     //positive by the time we need to spread the water around.
-    const double current_volume = cells_affected.size()*topo(c.x,c.y) - total_elevation;
+    const double current_volume = cells_affected.size()*static_cast<double>(topo(c.x,c.y)) - total_elevation;
 
     //NOTE: If this is false by a small margin, then it's a floating point issue
     //and this should be adjusted to be >=-1e-6 and water_vol should be made 0

@@ -708,7 +708,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
     //This has to be after the foregoing because the cells added by the if-
     //clauses have additional volume above their spill elevations that cannot be
     //counted simply by adding their volumes to their parent depression.
-    dep.dep_vol = dep.cell_count*dep.out_elev-dep.total_elevation;
+    dep.dep_vol = dep.cell_count*static_cast<double>(dep.out_elev)-dep.total_elevation;
 
     assert(dep.lchild==NO_VALUE || depressions.at(dep.lchild).dep_vol+depressions.at(dep.rchild).dep_vol<=dep.dep_vol);
   }
