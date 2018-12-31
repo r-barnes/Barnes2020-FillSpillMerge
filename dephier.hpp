@@ -178,10 +178,16 @@ const dh_label_t NO_DEP = -1;
 //depressions.
 const dh_label_t OCEAN  = 0;
 
-
-
 template<typename elev_t>
 using DepressionHierarchy = std::vector<Depression<elev_t>>;
+
+template<class elev_t>
+void CalculateMarginalVolumes(DepressionHierarchy<elev_t> &deps, const rd::Array2D<elev_t> &dem, const rd::Array2D<int> &label);
+
+template<class elev_t>
+void CalculateTotalVolumes(DepressionHierarchy<elev_t> &deps);
+
+
 
 //Calculate the hierarchy of depressions. Takes as input a digital elevation
 //model and a set of labels. The labels should have `OCEAN` for cells
@@ -641,25 +647,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
   //The labels array has been modified in place. The depression hierarchy is
   //returned.
 
-  std::cerr<<"p Calculating depression marginal volumes..."<<std::endl;
-
-  //Get the marginal depression cell counts and total elevations
-  progress.start(dem.size());
-  for(unsigned int i=0;i<dem.size();i++){
-    ++progress;
-    const auto my_elev = dem(i);
-    auto clabel        = label(i);
-    
-    while(clabel!=OCEAN && my_elev>depressions.at(clabel).out_elev)
-      clabel = depressions[clabel].parent;
-
-    if(clabel==OCEAN)
-      continue;
-
-    depressions[clabel].cell_count++;
-    depressions[clabel].total_elevation += dem(i);
-  }
-  progress.stop();
+  CalculateMarginalVolumes(depressions, dem, label);
 
   // { //Depression filling code
   //   rd::Array2D<elev_t> dhfilled(dem);
@@ -686,37 +674,76 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
   //   SaveAsNetCDF(dhfilled,"/z/out-dhfilled.nc","value");
   // }
 
+  CalculateTotalVolumes(depressions);
+
+  std::cerr<<"t Depression Hierarchy Wall-Time = "<<timer_overall.stop()<<" s"<<std::endl;
+
+  return depressions;
+}
 
 
+
+template<class elev_t>
+void CalculateMarginalVolumes(
+  DepressionHierarchy<elev_t> &deps,
+  const rd::Array2D<elev_t>   &dem,
+  const rd::Array2D<int>      &label
+){
+  ProgressBar progress;
+
+  std::cerr<<"p Calculating depression marginal volumes..."<<std::endl;
+
+  //Get the marginal depression cell counts and total elevations
+  progress.start(dem.size());
+  for(unsigned int i=0;i<dem.size();i++){
+    ++progress;
+    const auto my_elev = dem(i);
+    auto clabel        = label(i);
+    
+    while(clabel!=OCEAN && my_elev>deps.at(clabel).out_elev)
+      clabel = deps[clabel].parent;
+
+    if(clabel==OCEAN)
+      continue;
+
+    deps[clabel].cell_count++;
+    deps[clabel].total_elevation += dem(i);
+  }
+  progress.stop();
+}
+
+
+
+template<class elev_t>
+void CalculateTotalVolumes(
+  DepressionHierarchy<elev_t> &deps
+){
+  ProgressBar progress;
 
   std::cerr<<"p Calculating depression total volumes..."<<std::endl;
   //Calculate total depression volumes and cell counts
-  progress.start(depressions.size());
-  for(int d=0;d<(int)depressions.size();d++){
+  progress.start(deps.size());
+  for(int d=0;d<(int)deps.size();d++){
     ++progress;
 
-    auto &dep = depressions.at(d);
+    auto &dep = deps.at(d);
     if(dep.lchild!=NO_VALUE){
       assert(dep.rchild!=NO_VALUE); //Either no children or two children
       assert(dep.lchild<d);         //ID of child must be smaller than parent's
       assert(dep.rchild<d);         //ID of child must be smaller than parent's
-      dep.cell_count      += depressions.at(dep.lchild).cell_count;
-      dep.total_elevation += depressions.at(dep.lchild).total_elevation;
-      dep.cell_count      += depressions.at(dep.rchild).cell_count;
-      dep.total_elevation += depressions.at(dep.rchild).total_elevation;
+      dep.cell_count      += deps.at(dep.lchild).cell_count;
+      dep.total_elevation += deps.at(dep.lchild).total_elevation;
+      dep.cell_count      += deps.at(dep.rchild).cell_count;
+      dep.total_elevation += deps.at(dep.rchild).total_elevation;
     }
     //This has to be after the foregoing because the cells added by the if-
     //clauses have additional volume above their spill elevations that cannot be
     //counted simply by adding their volumes to their parent depression.
     dep.dep_vol = dep.cell_count*static_cast<double>(dep.out_elev)-dep.total_elevation;
 
-    assert(dep.lchild==NO_VALUE || depressions.at(dep.lchild).dep_vol+depressions.at(dep.rchild).dep_vol<=dep.dep_vol);
+    assert(dep.lchild==NO_VALUE || deps.at(dep.lchild).dep_vol+deps.at(dep.rchild).dep_vol<=dep.dep_vol);
   }
   progress.stop();
-
-  std::cerr<<"t Depression Hierarchy Wall-Time = "<<timer_overall.stop()<<" s"<<std::endl;
-
-  return depressions;
 }
 
 
