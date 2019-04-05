@@ -211,7 +211,10 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
 ){
   rd::ProgressBar progress;
   rd::Timer timer_overall;
+  rd::Timer timer_dephier;
   timer_overall.start();
+
+  timer_dephier.start();
 
   std::cerr<<"\033[91m##########Getting depression hierarchy\033[39m"<<std::endl;
 
@@ -639,6 +642,8 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
   }
   progress.stop();
 
+  std::cerr<<"t Time to construct Depression Hierarchy = "<<timer_dephier.stop()<<" s"<<std::endl;
+
 
   //At this point we have a 2D array in which each cell is labeled. This label
   //corresponds to either the root node (the ocean) or a leaf node of a binary
@@ -646,6 +651,9 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
 
   //The labels array has been modified in place. The depression hierarchy is
   //returned.
+
+  rd::Timer timer_volumes;
+  timer_volumes.start();
 
   CalculateMarginalVolumes(depressions, dem, label);
 
@@ -676,7 +684,8 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
 
   CalculateTotalVolumes(depressions);
 
-  std::cerr<<"t Depression Hierarchy Wall-Time = "<<timer_overall.stop()<<" s"<<std::endl;
+  std::cerr<<"t Time to calculate volumes = "<<timer_volumes.stop()<<" s"<<std::endl;
+  std::cerr<<"t Total time in depression hierarchy calculations = "<<timer_overall.stop()<<" s"<<std::endl;
 
   return depressions;
 }
