@@ -322,6 +322,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
     }
   }
   progress.stop();
+  std::cerr<<"t Pit cells found in = "<<progress.time_it_took()<<" s"<<std::endl;
 
 
 
@@ -473,6 +474,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
     }
   }
   progress.stop();
+  std::cerr<<"t Outlets found in = "<<progress.time_it_took()<<" s"<<std::endl;
 
   //At this point every cell is associated with the label of a depression. Each
   //depression contains the cells lower than its outlet elevation as well as all
