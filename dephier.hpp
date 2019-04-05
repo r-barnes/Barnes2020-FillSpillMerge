@@ -182,7 +182,7 @@ template<typename elev_t>
 using DepressionHierarchy = std::vector<Depression<elev_t>>;
 
 template<class elev_t>
-void CalculateMarginalVolumes(DepressionHierarchy<elev_t> &deps, const rd::Array2D<elev_t> &dem, const rd::Array2D<int> &label);
+void CalculateMarginalVolumes(DepressionHierarchy<elev_t> &deps, const Array2D<elev_t> &dem, const Array2D<int> &label);
 
 template<class elev_t>
 void CalculateTotalVolumes(DepressionHierarchy<elev_t> &deps);
@@ -205,13 +205,13 @@ void CalculateTotalVolumes(DepressionHierarchy<elev_t> &deps);
 //                   direction (even flats) except for pit cells.
 template<class elev_t, Topology topo>                                                     
 DepressionHierarchy<elev_t> GetDepressionHierarchy(
-  const rd::Array2D<elev_t> &dem,
-  rd::Array2D<int>          &label,
-  rd::Array2D<int8_t>       &flowdirs
+  const Array2D<elev_t> &dem,
+  Array2D<int>          &label,
+  Array2D<int8_t>       &flowdirs
 ){
-  rd::ProgressBar progress;
-  rd::Timer timer_overall;
-  rd::Timer timer_dephier;
+  ProgressBar progress;
+  Timer timer_overall;
+  Timer timer_dephier;
   timer_overall.start();
 
   timer_dephier.start();
@@ -251,7 +251,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
   //highest. If two or more cells are of equal elevation then the one added last
   //(most recently) is returned from the queue first. This ensures that a single
   //depression gets all the cells within a flat area.
-  rd::GridCellZk_high_pq<elev_t> pq;
+  GridCellZk_high_pq<elev_t> pq;
 
   std::cerr<<"p Adding ocean cells to priority-queue..."<<std::endl;
   //We assume the user has already specified a few ocean cells from which to
@@ -652,13 +652,13 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
   //The labels array has been modified in place. The depression hierarchy is
   //returned.
 
-  rd::Timer timer_volumes;
+  Timer timer_volumes;
   timer_volumes.start();
 
   CalculateMarginalVolumes(depressions, dem, label);
 
   // { //Depression filling code
-  //   rd::Array2D<elev_t> dhfilled(dem);
+  //   Array2D<elev_t> dhfilled(dem);
   //   for(int i=0;i<(int)dem.size();i++)
   //     dhfilled(i) = dem(i);
 
@@ -695,8 +695,8 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
 template<class elev_t>
 void CalculateMarginalVolumes(
   DepressionHierarchy<elev_t> &deps,
-  const rd::Array2D<elev_t>   &dem,
-  const rd::Array2D<int>      &label
+  const Array2D<elev_t>   &dem,
+  const Array2D<int>      &label
 ){
   ProgressBar progress;
 
@@ -760,7 +760,7 @@ void CalculateTotalVolumes(
 //Utility function for doing various relabelings based on the depression
 //hierarchy.
 template<class elev_t>
-void LastLayer(rd::Array2D<dh_label_t> &label, const rd::Array2D<float> &dem, const DepressionHierarchy<elev_t> &depressions){
+void LastLayer(Array2D<dh_label_t> &label, const Array2D<float> &dem, const DepressionHierarchy<elev_t> &depressions){
   #pragma omp parallel for collapse(2)
   for(int y=0;y<label.height();y++)
   for(int x=0;x<label.width();x++){

@@ -37,21 +37,21 @@ const double FP_ERROR = 1e-4;
 
 template<class elev_t, class wtd_t>
 void FillSpillMerge(
-  const rd::Array2D<elev_t>     &topo,
-  const rd::Array2D<dh_label_t> &label,
-  const rd::Array2D<flowdir_t>  &flowdirs,
-  DepressionHierarchy<elev_t>   &deps,
-  rd::Array2D<wtd_t>            &wtd,
-  const elev_t                   ocean_level
+  const Array2D<elev_t>       &topo,
+  const Array2D<dh_label_t>   &label,
+  const Array2D<flowdir_t>    &flowdirs,
+  DepressionHierarchy<elev_t> &deps,
+  Array2D<wtd_t>              &wtd,
+  const elev_t                 ocean_level
 );
 
 template<class elev_t, class wtd_t>
 static void MoveWaterIntoPits(
-  const rd::Array2D<elev_t>    &topo,
-  rd::Array2D<wtd_t>           &wtd,
-  const rd::Array2D<int>       &label,
+  const Array2D<elev_t>        &topo,
+  Array2D<wtd_t>               &wtd,
+  const Array2D<int>           &label,
   DepressionHierarchy<elev_t>  &deps,
-  const rd::Array2D<flowdir_t> &flowdirs
+  const Array2D<flowdir_t>     &flowdirs
 );
 
 template<class elev_t>
@@ -76,9 +76,9 @@ template<class elev_t>
 static SubtreeDepressionInfo FindDepressionsToFill(
   const int                          current_depression, 
   const DepressionHierarchy<elev_t> &deps,               
-  const rd::Array2D<float>          &topo,               
-  const rd::Array2D<dh_label_t>     &label,              
-  rd::Array2D<float>                &wtd,
+  const Array2D<float>              &topo,               
+  const Array2D<dh_label_t>         &label,              
+  Array2D<float>                    &wtd,
   const elev_t                       ocean_level            //Elevation of the ocean             
 );
 
@@ -87,9 +87,9 @@ static void FillDepressions(
   SubtreeDepressionInfo             &stdi,  
   double                             water_vol, 
   const DepressionHierarchy<elev_t> &deps,      
-  const rd::Array2D<float>          &topo,      
-  const rd::Array2D<dh_label_t>     &label,     
-  rd::Array2D<wtd_t>                &wtd,
+  const Array2D<float>          &topo,      
+  const Array2D<dh_label_t>     &label,     
+  Array2D<wtd_t>                &wtd,
   const elev_t                       ocean_level        
 );
 
@@ -122,14 +122,14 @@ static void FillDepressions(
 ///        saturated a cell is or how much standing surface water it has.
 template<class elev_t, class wtd_t>
 void FillSpillMerge(
-  const rd::Array2D<elev_t>     &topo,
-  const rd::Array2D<dh_label_t> &label,
-  const rd::Array2D<flowdir_t>  &flowdirs,
-  DepressionHierarchy<elev_t>   &deps,
-  rd::Array2D<wtd_t>            &wtd,
-  const elev_t                   ocean_level            //Elevation of the ocean
+  const Array2D<elev_t>       &topo,
+  const Array2D<dh_label_t>   &label,
+  const Array2D<flowdir_t>    &flowdirs,
+  DepressionHierarchy<elev_t> &deps,
+  Array2D<wtd_t>              &wtd,
+  const elev_t                 ocean_level            //Elevation of the ocean
 ){
-  rd::Timer timer_overall;
+  Timer timer_overall;
   timer_overall.start();
   
   //We move standing water downhill to the pit cells of each depression
@@ -138,7 +138,7 @@ void FillSpillMerge(
   { 
     //Scope to limit `timer_overflow` and `jump_table`. Also ensures
     //`jump_table` frees its memory
-    rd::Timer timer_overflow;
+    Timer timer_overflow;
     timer_overflow.start();
     std::unordered_map<dh_label_t, dh_label_t> jump_table;
     //Now that the water is in the pit cells, we move it around so that
@@ -158,7 +158,7 @@ void FillSpillMerge(
   }
 
   std::cerr<<"p Finding filled..."<<std::endl;
-  rd::Timer timer_filled;
+  Timer timer_filled;
   timer_filled.start();
   //We start at the ocean, crawl to the bottom of the depression hierarchy and
   //determine which depressions or metadepressions contain standing water. We
@@ -170,7 +170,7 @@ void FillSpillMerge(
 
   //TODO
   // std::cerr<<"m Checking against master..."<<std::endl;
-  // rd::Array2D<float> wtd_master("wtd_master.dat", true);   //Recharge (Percipitation minus Evapotranspiration)
+  // Array2D<float> wtd_master("wtd_master.dat", true);   //Recharge (Percipitation minus Evapotranspiration)
   // for(unsigned int i=0;i<wtd.size();i++)
   //   assert(wtd(i)==wtd_master(i));
   // std::cerr<<"m wtd field matches master!"<<std::endl;
@@ -201,14 +201,14 @@ void FillSpillMerge(
 ///        operation.
 template<class elev_t, class wtd_t>
 static void MoveWaterIntoPits(
-  const rd::Array2D<elev_t>    &topo,
-  const rd::Array2D<int>       &label,
-  const rd::Array2D<flowdir_t> &flowdirs,
+  const Array2D<elev_t>        &topo,
+  const Array2D<int>           &label,
+  const Array2D<flowdir_t>     &flowdirs,
   DepressionHierarchy<elev_t>  &deps,
-  rd::Array2D<wtd_t>           &wtd
+  Array2D<wtd_t>               &wtd
 ){
-  rd::Timer timer;
-  rd::ProgressBar progress;
+  Timer timer;
+  ProgressBar progress;
   timer.start();
 
   //Our first step is to move all of the water downstream into pit cells. To do
@@ -218,7 +218,7 @@ static void MoveWaterIntoPits(
   std::cerr<<"p Moving surface water downstream..."<<std::endl;
 
   //Calculate how many upstream cells flow into each cell
-  rd::Array2D<char>  dependencies(topo.width(),topo.height(),0);
+  Array2D<char>  dependencies(topo.width(),topo.height(),0);
   #pragma omp parallel for collapse(2)
   for(int y=0;y<topo.height();y++)
   for(int x=0;x<topo.width(); x++)
@@ -626,9 +626,9 @@ template<class elev_t>
 static SubtreeDepressionInfo FindDepressionsToFill(
   const int                          current_depression,    //Depression we are currently in
   const DepressionHierarchy<elev_t> &deps,                  //Depression hierarchy
-  const rd::Array2D<float>          &topo,                  //Topographic data (used for determinining volumes as we're spreading stuff)
-  const rd::Array2D<dh_label_t>     &label,                 //Array indicating which leaf depressions each cell belongs to
-  rd::Array2D<float>                &wtd,                   //Water table depth
+  const Array2D<float>              &topo,                  //Topographic data (used for determinining volumes as we're spreading stuff)
+  const Array2D<dh_label_t>         &label,                 //Array indicating which leaf depressions each cell belongs to
+  Array2D<float>                    &wtd,                   //Water table depth
   const elev_t                       ocean_level            //Elevation of the ocean
 ){
   //Stop when we reach one level below the leaves
@@ -741,9 +741,9 @@ static void FillDepressions(
   SubtreeDepressionInfo             &stdi,  
   double                             water_vol, //Amount of water to spread around this depression
   const DepressionHierarchy<elev_t> &deps,      //Depression hierarchy
-  const rd::Array2D<float>          &topo,      //Topographic data for calculating marginal volumes as we attempt to spread water
-  const rd::Array2D<dh_label_t>     &label,     //2D array in which each cell is labeled with the leaf depression it belongs to
-  rd::Array2D<wtd_t>                &wtd,       //Water table depth: we transfer water into this
+  const Array2D<float>          &topo,      //Topographic data for calculating marginal volumes as we attempt to spread water
+  const Array2D<dh_label_t>     &label,     //2D array in which each cell is labeled with the leaf depression it belongs to
+  Array2D<wtd_t>                &wtd,       //Water table depth: we transfer water into this
   const elev_t                      ocean_level //Elevation of the ocean
 ){
   //Nothing to do if we have no water
@@ -762,7 +762,7 @@ static void FillDepressions(
   //of equal elevation the one added most recently is popped first. The ordering
   //of the cells processed by this priority queue need not match the ordering of
   //the cells processed by the depression hierarchy.
-  rd::GridCellZk_high_pq<elev_t> flood_q;                          
+  GridCellZk_high_pq<elev_t> flood_q;                          
 
   { //Scope to limit pit_cell
     //Cell from which we can begin flooding the meta-depression. Which one we
