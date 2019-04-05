@@ -9,14 +9,15 @@ namespace rd = richdem;
 namespace dh = richdem::dephier;
 
 int main(int argc, char **argv){
-  if(argc!=4){
-    std::cerr<<"Syntax: "<<argv[0]<<" <Input> <Output> <OutGraph>"<<std::endl;
+  if(argc!=5){
+    std::cerr<<"Syntax: "<<argv[0]<<" <Input> <Output> <OutGraph> <Ocean Level>"<<std::endl;
     return -1;
   }
 
-  const std::string in_name   = argv[1];
-  const std::string out_name  = argv[2];
-  const std::string out_graph = argv[3];
+  const std::string in_name     = argv[1];
+  const std::string out_name    = argv[2];
+  const std::string out_graph   = argv[3];
+  const float       ocean_level = std::stod(argv[4]);
 
   rd::Timer timer_io;
   timer_io.start();
@@ -33,7 +34,7 @@ int main(int argc, char **argv){
   //`GetDepressionHierarchy()`.
   #pragma omp parallel for
   for(unsigned int i=0;i<label.size();i++){
-    if(topo.isNoData(i) || topo(i)==dh::OCEAN_LEVEL){ //Ocean Level is assumed to be lower than any other cells (even Death Valley)
+    if(topo.isNoData(i) || topo(i)==ocean_level){ //Ocean Level is assumed to be lower than any other cells (even Death Valley)
       label(i) = dh::OCEAN;
       wtd  (i) = 0;
     }
@@ -43,7 +44,7 @@ int main(int argc, char **argv){
   //connecting them
   auto deps = dh::GetDepressionHierarchy<float,rd::Topology::D8>(topo, label, flowdirs);
 
-  dh::FillSpillMerge(topo, label, flowdirs, deps, wtd);
+  dh::FillSpillMerge(topo, label, flowdirs, deps, wtd, ocean_level);
 
   //TODO: Remove. For viewing test cases.
   if(label.width()<1000){

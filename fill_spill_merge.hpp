@@ -31,10 +31,6 @@ const int        neighbours = 8;
 
 const double FP_ERROR = 1e-4;
 
-const float  OCEAN_LEVEL = 0;  //ocean_level in the topo file must be lower than any non-ocean cell. 
-
-
-
 ///////////////////////////////////
 //Function prototypes
 ///////////////////////////////////
@@ -45,7 +41,8 @@ void FillSpillMerge(
   const rd::Array2D<dh_label_t> &label,
   const rd::Array2D<flowdir_t>  &flowdirs,
   DepressionHierarchy<elev_t>   &deps,
-  rd::Array2D<wtd_t>            &wtd
+  rd::Array2D<wtd_t>            &wtd,
+  const elev_t                   ocean_level
 );
 
 template<class elev_t, class wtd_t>
@@ -81,7 +78,8 @@ static SubtreeDepressionInfo FindDepressionsToFill(
   const DepressionHierarchy<elev_t> &deps,               
   const rd::Array2D<float>          &topo,               
   const rd::Array2D<dh_label_t>     &label,              
-  rd::Array2D<float>                &wtd                 
+  rd::Array2D<float>                &wtd,
+  const elev_t                       ocean_level            //Elevation of the ocean             
 );
 
 template<class elev_t, class wtd_t>
@@ -91,7 +89,8 @@ static void FillDepressions(
   const DepressionHierarchy<elev_t> &deps,      
   const rd::Array2D<float>          &topo,      
   const rd::Array2D<dh_label_t>     &label,     
-  rd::Array2D<wtd_t>                &wtd        
+  rd::Array2D<wtd_t>                &wtd,
+  const elev_t                       ocean_level        
 );
 
 
@@ -127,7 +126,8 @@ void FillSpillMerge(
   const rd::Array2D<dh_label_t> &label,
   const rd::Array2D<flowdir_t>  &flowdirs,
   DepressionHierarchy<elev_t>   &deps,
-  rd::Array2D<wtd_t>            &wtd
+  rd::Array2D<wtd_t>            &wtd,
+  const elev_t                   ocean_level            //Elevation of the ocean
 ){
   rd::Timer timer_overall;
   timer_overall.start();
@@ -164,7 +164,7 @@ void FillSpillMerge(
   //determine which depressions or metadepressions contain standing water. We
   //then modify `wtd` in order to distribute this water across the cells of the
   //depression which will lie below its surface.
-  FindDepressionsToFill(OCEAN,deps,topo,label,wtd);                              
+  FindDepressionsToFill(OCEAN, deps, topo, label, wtd, ocean_level);                              
   std::cerr<<"t FlowInDepressionHierarchy: Fill time = "<<timer_filled.stop()<<" s"<<std::endl;
 
 
@@ -628,7 +628,8 @@ static SubtreeDepressionInfo FindDepressionsToFill(
   const DepressionHierarchy<elev_t> &deps,                  //Depression hierarchy
   const rd::Array2D<float>          &topo,                  //Topographic data (used for determinining volumes as we're spreading stuff)
   const rd::Array2D<dh_label_t>     &label,                 //Array indicating which leaf depressions each cell belongs to
-  rd::Array2D<float>                &wtd                    //Water table depth
+  rd::Array2D<float>                &wtd,                   //Water table depth
+  const elev_t                       ocean_level            //Elevation of the ocean
 ){
   //Stop when we reach one level below the leaves
   if(current_depression==NO_VALUE)
@@ -641,7 +642,7 @@ static SubtreeDepressionInfo FindDepressionsToFill(
   //metadepression tree by MoveWaterInDepHier(). Similar, it doesn't mater what their leaf
   //labels are since we will never spread water into them.
   for(const auto c: this_dep.ocean_linked)
-    FindDepressionsToFill(c, deps, topo, label, wtd);
+    FindDepressionsToFill(c, deps, topo, label, wtd, ocean_level);
 
   //At this point we've visited all of the ocean-linked depressions. Since all
   //depressions link to the ocean and the ocean has no children, this means we
@@ -652,8 +653,8 @@ static SubtreeDepressionInfo FindDepressionsToFill(
 
   //We visit both of the children. We need to keep track of info from these
   //because we may spread water across them.
-  SubtreeDepressionInfo left_info  = FindDepressionsToFill(this_dep.lchild, deps, topo, label, wtd);
-  SubtreeDepressionInfo right_info = FindDepressionsToFill(this_dep.rchild, deps, topo, label, wtd);   
+  SubtreeDepressionInfo left_info  = FindDepressionsToFill(this_dep.lchild, deps, topo, label, wtd, ocean_level);
+  SubtreeDepressionInfo right_info = FindDepressionsToFill(this_dep.rchild, deps, topo, label, wtd, ocean_level);   
 
   SubtreeDepressionInfo combined;
   combined.my_labels.emplace(current_depression);
@@ -685,7 +686,7 @@ static SubtreeDepressionInfo FindDepressionsToFill(
     //want to attempt to do so again in an empty parent depression. 
     //We check to see if both children have finished spreading water. 
 
-    FillDepressions(combined, this_dep.water_vol, deps, topo, label, wtd);
+    FillDepressions(combined, this_dep.water_vol, deps, topo, label, wtd, ocean_level);
 
     //At this point there should be no more water all the way up the tree until
     //we pass through an ocean link, so we pass this up as a kind of null value.
@@ -742,7 +743,8 @@ static void FillDepressions(
   const DepressionHierarchy<elev_t> &deps,      //Depression hierarchy
   const rd::Array2D<float>          &topo,      //Topographic data for calculating marginal volumes as we attempt to spread water
   const rd::Array2D<dh_label_t>     &label,     //2D array in which each cell is labeled with the leaf depression it belongs to
-  rd::Array2D<wtd_t>                &wtd        //Water table depth: we transfer water into this
+  rd::Array2D<wtd_t>                &wtd,       //Water table depth: we transfer water into this
+  const elev_t                      ocean_level //Elevation of the ocean
 ){
   //Nothing to do if we have no water
   if(water_vol==0)
@@ -926,7 +928,7 @@ static void FillDepressions(
         //mistakenly miss adding higher cells which belong to the ocean's depression
         //e.g. an escarpment before the ocean. 
 
-        if(visited.count(ni)==0 && (label(nx,ny)!=OCEAN || topo(nx,ny)>OCEAN_LEVEL)){
+        if(visited.count(ni)==0 && (label(nx,ny)!=OCEAN || topo(nx,ny)>ocean_level)){
           flood_q.emplace(nx,ny,topo(nx,ny));
           visited.emplace(ni);
         }
