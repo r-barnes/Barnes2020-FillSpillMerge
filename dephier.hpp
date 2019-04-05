@@ -21,9 +21,7 @@
 #include <unordered_map>
 #include <utility>
 
-namespace richdem {
-
-namespace dephier {
+namespace richdem::dephier {
 
 //We use a 32-bit integer for labeling depressions. This allows for a maximum of
 //2,147,483,647 depressions. This should be enough for most practical purposes.
@@ -776,8 +774,6 @@ void LastLayer(Array2D<dh_label_t> &label, const Array2D<float> &dem, const Depr
     }
     label(x,y) = mylabel;
   }
-}
-
 }
 
 }
