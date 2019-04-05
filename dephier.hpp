@@ -704,19 +704,32 @@ void CalculateMarginalVolumes(
 
   //Get the marginal depression cell counts and total elevations
   progress.start(dem.size());
-  for(unsigned int i=0;i<dem.size();i++){
-    ++progress;
-    const auto my_elev = dem(i);
-    auto clabel        = label(i);
-    
-    while(clabel!=OCEAN && my_elev>deps.at(clabel).out_elev)
-      clabel = deps[clabel].parent;
+  #pragma omp parallel default(none) shared(progress,deps,dem,label)
+  {
+    std::vector<uint32_t> cell_counts     (deps.size(), 0);
+    std::vector<double>   total_elevations(deps.size(), 0);
 
-    if(clabel==OCEAN)
-      continue;
+    #pragma omp for
+    for(unsigned int i=0;i<dem.size();i++){
+      ++progress;
+      const auto my_elev = dem(i);
+      auto clabel        = label(i);
+      
+      while(clabel!=OCEAN && my_elev>deps.at(clabel).out_elev)
+        clabel = deps[clabel].parent;
 
-    deps[clabel].cell_count++;
-    deps[clabel].total_elevation += dem(i);
+      if(clabel==OCEAN)
+        continue;
+
+      cell_counts[clabel]++;
+      total_elevations[clabel] += dem(i);
+    }
+
+    #pragma omp critical
+    for(unsigned int i=0;i<deps.size();i++){
+      deps[i].cell_count      += cell_counts[i];
+      deps[i].total_elevation += total_elevations[i];
+    }
   }
   progress.stop();
 }
