@@ -10,7 +10,7 @@ namespace dh = richdem::dephier;
 
 int main(int argc, char **argv){
   if(argc!=5){
-    std::cerr<<"Syntax: "<<argv[0]<<" <Input> <Output> <OutGraph> <Ocean Level>"<<std::endl;
+    std::cout<<"Syntax: "<<argv[0]<<" <Input> <Output> <OutGraph> <Ocean Level>"<<std::endl;
     return -1;
   }
 
@@ -23,6 +23,10 @@ int main(int argc, char **argv){
   timer_io.start();
   rd::Array2D<float> topo = LoadData<float>(in_name,std::string("value"));   //Recharge (Percipitation minus Evapotranspiration)
   timer_io.stop();
+
+  std::cout<<"m Data width  = "<<topo.width ()<<std::endl;
+  std::cout<<"m Data height = "<<topo.height()<<std::endl;
+  std::cout<<"m Data cells  = "<<topo.numDataCells()<<std::endl;
 
   rd::Array2D<float>          wtd     (topo.width(), topo.height(), 1000       ); //All cells have some water
   rd::Array2D<dh::dh_label_t> label   (topo.width(), topo.height(), dh::NO_DEP ); //No cells are part of a depression
@@ -74,8 +78,8 @@ int main(int argc, char **argv){
     diff(i) = wtd(i)-topo(i);
   SaveAsNetCDF(diff,out_name+"-diff.nc","value");
 
-  std::cerr<<"Finished"<<std::endl;
-  std::cerr<<"IO time   = "<<timer_io.accumulated()<<" s"<<std::endl;
+  std::cout<<"Finished"<<std::endl;
+  std::cout<<"IO time   = "<<timer_io.accumulated()<<" s"<<std::endl;
 
   return 0;
 }
