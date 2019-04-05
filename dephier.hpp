@@ -298,6 +298,8 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
   for(int y=0;y<dem.height();y++)  //Look at all the cells
   for(int x=0;x<dem.width() ;x++){ //Yes, all of them
     ++progress;
+    if(label(x,y)==OCEAN)          //Already in priority queue
+      continue;
     const auto my_elev = dem(x,y); //Focal cell's elevation
     bool has_lower     = false;    //Pretend we have no lower neighbours
     for(int n=1;n<=neighbours;n++){ //Check out our neighbours
