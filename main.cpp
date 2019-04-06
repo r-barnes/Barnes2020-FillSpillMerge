@@ -19,6 +19,10 @@ int main(int argc, char **argv){
   const std::string out_graph   = argv[3];
   const float       ocean_level = std::stod(argv[4]);
 
+  std::cout<<"m Processing    = "<<argv[1]<<std::endl;
+  std::cout<<"m Output prefix = "<<argv[2]<<std::endl;
+  std::cout<<"m Ocean level   = "<<argv[3]<<std::endl;
+
   rd::Timer timer_io;
   timer_io.start();
   rd::Array2D<float> topo = LoadData<float>(in_name,std::string("value"));   //Recharge (Percipitation minus Evapotranspiration)
