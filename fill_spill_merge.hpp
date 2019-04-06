@@ -344,7 +344,7 @@ static void MoveWaterIntoPits(
 ///        standing surface water to the cells within a depression.
 template<class elev_t>
 static void MoveWaterInDepHier(
-  int                                         current_depression,
+  dh_label_t                                  current_depression,
   DepressionHierarchy<elev_t>                &deps,
   std::unordered_map<dh_label_t, dh_label_t> &jump_table
 ){
@@ -580,16 +580,16 @@ class SubtreeDepressionInfo {
  public:
   //One of the depressions at the bottom of the meta-depression. We use this to
   //identify a pit cell from which to start flooding.
-  int   leaf_label = -1;          
+  dh_label_t leaf_label = NO_VALUE;          
   //The metadepression containing all of the children. This metadepression is
   //guaranteed to be large enough to hold all of the water of its children plus
   //whatever exists only in the metadepression itself. We use this to determine
   //the water and depression volumes.
-  int   top_label = -1;
+  dh_label_t top_label = NO_VALUE;
   //Here we keep track of which depressions are contained within the
   //metadepression. This allows us to limit the spreading function to cells
   //within the metadepression.
-  std::unordered_set<int> my_labels;
+  std::unordered_set<dh_label_t> my_labels;
 };
 
 
@@ -624,7 +624,7 @@ class SubtreeDepressionInfo {
 ///        contains, and its root node.
 template<class elev_t>
 static SubtreeDepressionInfo FindDepressionsToFill(
-  const int                          current_depression,    //Depression we are currently in
+  const dh_label_t                   current_depression,    //Depression we are currently in
   const DepressionHierarchy<elev_t> &deps,                  //Depression hierarchy
   const Array2D<float>              &topo,                  //Topographic data (used for determinining volumes as we're spreading stuff)
   const Array2D<dh_label_t>         &label,                 //Array indicating which leaf depressions each cell belongs to

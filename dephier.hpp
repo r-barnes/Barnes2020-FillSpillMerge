@@ -617,7 +617,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
         // continue;
 
       //Ensure we don't modify depressions that have already found their paths
-      assert(dep.out_cell==-1);
+      assert(dep.out_cell==NO_VALUE);
       assert(dep.odep==NO_VALUE);            
 
       //Point this depression to the ocean through Depression B Label
@@ -771,7 +771,7 @@ void CalculateTotalVolumes(
   std::cerr<<"p Calculating depression total volumes..."<<std::endl;
   //Calculate total depression volumes and cell counts
   progress.start(deps.size());
-  for(int d=0;d<(int)deps.size();d++){
+  for(unsigned int d=0;d<deps.size();d++){
     ++progress;
 
     auto &dep = deps.at(d);
