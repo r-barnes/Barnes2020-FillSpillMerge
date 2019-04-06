@@ -372,8 +372,8 @@ static void MoveWaterInDepHier(
     return;
 
   {
-    const int lchild = this_dep.lchild;
-    const int rchild = this_dep.rchild;
+    const auto lchild = this_dep.lchild;
+    const auto rchild = this_dep.rchild;
 
     //Only if both children are full should their water make its way to this
     //parent

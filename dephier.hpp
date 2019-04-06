@@ -215,7 +215,7 @@ void CalculateTotalVolumes(DepressionHierarchy<elev_t> &deps);
 template<class elev_t, Topology topo>                                                     
 DepressionHierarchy<elev_t> GetDepressionHierarchy(
   const Array2D<elev_t> &dem,
-  Array2D<int>          &label,
+  Array2D<dh_label_t>   &label,
   Array2D<int8_t>       &flowdirs
 ){
   ProgressBar progress;
