@@ -394,7 +394,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
     const auto ci    = pq.top_value();     //Copy cell with lowest elevation from priority queue
     const auto celev = pq.top_key();       //Elevation of focal cell
     pq.pop();                              //Remove the copied cell from the priority queue
-    auto clabel = label(ci);          //Nominal label of cell
+    auto clabel = label(ci);               //Nominal label of cell
     int cx,cy;
     dem.iToxy(ci,cx,cy);
 
@@ -412,7 +412,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
       //cell found in a flat determines the label for the entirety of that flat.
       clabel            = depressions.size();         //In a 0-based indexing system, size is equal to the id of the next flat
       auto &newdep      = depressions.emplace_back(); //Add the next flat (increases size by 1)
-      newdep.pit_cell   = dem.xyToI(cx,cy);         //Make a note of the pit cell's location
+      newdep.pit_cell   = dem.xyToI(cx,cy);           //Make a note of the pit cell's location
       newdep.pit_elev   = celev;                      //Make a note of the pit cell's elevation
       newdep.dep_label  = clabel;                     //I am storing the label in the object so that I can find it later and call up the number of cells and volume (better way of doing this?) -- I have since realised I can use the index in the depressions array. So perhaps the label is no longer needed?
       label(ci)         = clabel;                     //Update cell with new label                                                           
@@ -433,8 +433,8 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
     //Consider the cell's neighbours
     for(int n=1;n<=neighbours;n++){
       // const int nx = ModFloor(cx+dx[n],dem.width()); //Get neighbour's x-coordinate using an offset and wrapping
-      const int nx = cx + dx[n];                     //Get neighbour's y-coordinate using an offset
-      const int ny = cy + dy[n];                     //Get neighbour's y-coordinate using an offset
+      const int nx = cx + dx[n];                      //Get neighbour's y-coordinate using an offset
+      const int ny = cy + dy[n];                      //Get neighbour's y-coordinate using an offset
       if(!dem.inGrid(nx,ny))                          //Is this cell in the grid?
         continue;                                     //Nope: out of bounds.
       const auto ni     = dem.xyToI(nx,ny);           //Flat index of neighbour
