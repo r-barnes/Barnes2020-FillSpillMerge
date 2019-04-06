@@ -18,8 +18,10 @@
 #include <queue>
 #include <stdexcept>
 #include <string>
-#include <unordered_map>
 #include <utility>
+// #include <unordered_map>
+#include <parallel_hashmap/phmap.h>
+#include <parallel_hashmap/phmap_utils.h>
 
 namespace richdem::dephier {
 
@@ -157,8 +159,9 @@ struct OutletHash {
     //Since depa and depb are sorted on construction, we don't have to worry
     //about which order the invoking code called them in and our hash function
     //doesn't need to be symmetric with respect to depa and depb.
+    return phmap::HashState().combine(0, out.depa, out.depb);
     //Hash function from: https://stackoverflow.com/a/27952689/752843
-    return out.depa^(out.depb + 0x9e3779b9 + (out.depa << 6) + (out.depa >> 2));
+    // return out.depa^(out.depb + 0x9e3779b9 + (out.depa << 6) + (out.depa >> 2));    
   }
 };
 
@@ -245,7 +248,8 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
   //This keeps track of the outlets we find. Each pair of depressions can only
   //be linked once and the lowest link found between them is the one which is
   //retained.
-  typedef std::unordered_map<OutletLink, Outlet<elev_t>, OutletHash<elev_t>> outletdb_t;
+  typedef phmap::flat_hash_map<OutletLink, Outlet<elev_t>, OutletHash<elev_t>> outletdb_t;
+  // typedef std::unordered_map<OutletLink, Outlet<elev_t>, OutletHash<elev_t>> outletdb_t;
   outletdb_t outlet_database;
 
   //The priority queue ensures that cells are visited in order from lowest to
