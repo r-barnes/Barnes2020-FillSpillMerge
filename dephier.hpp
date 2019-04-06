@@ -288,11 +288,6 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
     }
   }
 
-  //But maybe the user didn't specify any cells! We'll assume this was mistake
-  //and throw an exception. The user can always catch it if they want to.
-  if(ocean_cells==0)
-    throw std::runtime_error("No initial ocean cells were found!");
-
   //The 0th depression is the ocean. We add it to the list of depressions now
   //that we're sure there is an ocean!
   { //Use a little scope to avoid having `oceandep` linger around
