@@ -28,11 +28,12 @@ namespace richdem::dephier {
 
 //We use a 32-bit integer for labeling depressions. This allows for a maximum of
 //2,147,483,647 depressions. This should be enough for most practical purposes.
-typedef int32_t dh_label_t;
+typedef uint32_t dh_label_t;
+typedef uint32_t flat_c_idx;
 
 //Some special valuess
-const dh_label_t NO_PARENT = -1;
-const dh_label_t NO_VALUE  = -1;
+const dh_label_t NO_PARENT = std::numeric_limits<dh_label_t>::max();
+const dh_label_t NO_VALUE  = std::numeric_limits<dh_label_t>::max();
 
 //This class holds information about a depression. Its pit cell and outlet cell
 //(in flat-index form) as well as the elevations of these cells. It also notes                                                   //what is flat-index form?
@@ -45,10 +46,10 @@ class Depression {
  public:
   //Flat index of the pit cell, the lowest cell in the depression. If more than
   //one cell shares this lowest elevation, then one is arbitrarily chosen.
-  dh_label_t pit_cell = NO_VALUE;
+  flat_c_idx pit_cell = NO_VALUE;
   //Flat index of the outlet cell. If there is more than one outlet cell at this
   //cell's elevation, then one is arbitrarily chosen.
-  dh_label_t out_cell = NO_VALUE;
+  flat_c_idx out_cell = NO_VALUE;
   //Parent depression. If both this depression and its neighbour fill up, this
   //parent depression is the one which will contain the overflow.
   dh_label_t parent   = NO_PARENT;
@@ -59,7 +60,7 @@ class Depression {
   //by `odep`. However, odep must flood from the bottom up. Therefore, we keep
   //track of the `geolink`, which indicates what leaf depression the overflow is
   //initially routed into.
-  dh_label_t geolink  = NO_VALUE;
+  flat_c_idx geolink  = NO_VALUE;
   //Elevation of the pit cell. Since the pit cell has the lowest elevation of
   //any cell in the depression, we initialize this to infinity.
   elev_t  pit_elev = std::numeric_limits<elev_t>::infinity();
@@ -123,14 +124,14 @@ class Outlet {
  public:
   dh_label_t depa;                //Depression A
   dh_label_t depb;                //Depression B
-  dh_label_t out_cell = NO_VALUE; //Flat-index of cell at which A and B meet.
+  flat_c_idx out_cell = NO_VALUE; //Flat-index of cell at which A and B meet.
   //Elevation of the cell linking A and B
   elev_t  out_elev = std::numeric_limits<elev_t>::infinity();
 
   Outlet() = default;
 
   //Standard issue constructor
-  Outlet(dh_label_t depa0, dh_label_t depb0, dh_label_t out_cell0, elev_t out_elev0){
+  Outlet(dh_label_t depa0, dh_label_t depb0, flat_c_idx out_cell0, elev_t out_elev0){
     depa       = depa0;
     depb       = depb0;
     if(depa>depb)           //Create a preferred ordering so that comparisons and hashing are faster
@@ -182,7 +183,7 @@ using PriorityQueue = radix_heap::pair_radix_heap<elev_t,uint64_t>;
 
 
 //Cell is not part of a depression
-const dh_label_t NO_DEP = -1; 
+const dh_label_t NO_DEP = std::numeric_limits<dh_label_t>::max(); 
 //Cell is part of the ocean and a place from which we begin searching for
 //depressions.
 const dh_label_t OCEAN  = 0;
@@ -191,7 +192,7 @@ template<typename elev_t>
 using DepressionHierarchy = std::vector<Depression<elev_t>>;
 
 template<class elev_t>
-void CalculateMarginalVolumes(DepressionHierarchy<elev_t> &deps, const Array2D<elev_t> &dem, const Array2D<int> &label);
+void CalculateMarginalVolumes(DepressionHierarchy<elev_t> &deps, const Array2D<elev_t> &dem, const Array2D<dh_label_t> &label);
 
 template<class elev_t>
 void CalculateTotalVolumes(DepressionHierarchy<elev_t> &deps);
@@ -721,8 +722,8 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
 template<class elev_t>
 void CalculateMarginalVolumes(
   DepressionHierarchy<elev_t> &deps,
-  const Array2D<elev_t>   &dem,
-  const Array2D<int>      &label
+  const Array2D<elev_t>       &dem,
+  const Array2D<dh_label_t>   &label
 ){
   ProgressBar progress;
 

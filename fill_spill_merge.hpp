@@ -49,7 +49,7 @@ template<class elev_t, class wtd_t>
 static void MoveWaterIntoPits(
   const Array2D<elev_t>        &topo,
   Array2D<wtd_t>               &wtd,
-  const Array2D<int>           &label,
+  const Array2D<dh_label_t>    &label,
   DepressionHierarchy<elev_t>  &deps,
   const Array2D<flowdir_t>     &flowdirs
 );
@@ -202,7 +202,7 @@ void FillSpillMerge(
 template<class elev_t, class wtd_t>
 static void MoveWaterIntoPits(
   const Array2D<elev_t>        &topo,
-  const Array2D<int>           &label,
+  const Array2D<dh_label_t>    &label,
   const Array2D<flowdir_t>     &flowdirs,
   DepressionHierarchy<elev_t>  &deps,
   Array2D<wtd_t>               &wtd
@@ -236,7 +236,7 @@ static void MoveWaterIntoPits(
   //recursive calculations; they just pass flow downstream. From the peaks, we
   //can begin a breadth-first traversal in the downstream direction by adding
   //each cell to the frontier/queue as its dependency count drops to zero.
-  std::queue<int> q;
+  std::queue<flat_c_idx> q;
   for(unsigned int i=0;i<topo.size();i++){
     if(dependencies(i)==0)// && flowdirs(i)!=NO_FLOW)  //Is it a peak?
       q.emplace(i);       
@@ -756,7 +756,7 @@ static void FillDepressions(
   //arbitrarily reserve enough space in the hashset for a few thousand items.
   //This should be large than most depressions while still being small by the
   //computer's standards.
-  std::unordered_set<int> visited(2048);
+  std::unordered_set<flat_c_idx> visited(2048);
  
   //Priority queue that sorts cells by lowest elevation first. If two cells are
   //of equal elevation the one added most recently is popped first. The ordering
@@ -784,7 +784,7 @@ static void FillDepressions(
   }
 
   //Cells whose wtd will be affected as we spread water around
-  std::vector<int> cells_affected;
+  std::vector<flat_c_idx> cells_affected;
 
   //Stores the sum of the elevations of all of the cells in cells_affected. Used
   //for calculating the volume we've seen so far. (See explanation above or in

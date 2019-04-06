@@ -55,7 +55,7 @@ int main(int argc, char **argv){
     //GraphViz dot-style output for drawing depression hierarchy graphs.
     std::ofstream fgraph(out_graph);
     fgraph<<"digraph {\n";
-    for(int i=0;i<(int)deps.size();i++){
+    for(unsigned int i=0;i<deps.size();i++){
       fgraph<<i<<" -> "<<deps[i].parent;
       if(deps[i].parent!=dh::NO_VALUE && (deps[i].parent==dh::OCEAN || !(deps[deps[i].parent].lchild==i || deps[deps[i].parent].rchild==i)))
         fgraph<<" [color=\"blue\"]";
