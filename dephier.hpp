@@ -109,7 +109,7 @@ class OutletLink {
   //This is used to compare two outlets. The outlets are the same regardless of
   //the order in which they store depressions
   bool operator==(const OutletLink &o) const {
-    return (depa==o.depa && depb==o.depb) || (depa==o.depb && depb==o.depa);
+    return depa==o.depa && depb==o.depb;
   }
 };
 
@@ -130,6 +130,8 @@ class Outlet {
   Outlet(dh_label_t depa0, dh_label_t depb0, dh_label_t out_cell0, elev_t out_elev0){
     depa       = depa0;
     depb       = depb0;
+    if(depa>depb)           //Create a preferred ordering so that comparisons and hashing are faster
+      std::swap(depa,depb);
     out_cell   = out_cell0;
     out_elev   = out_elev0;
   }
@@ -142,7 +144,7 @@ class Outlet {
   bool operator==(const Outlet &o) const {                                                                                              //so beyond just checking, is this somehow preventing it from being recorded if one already exists? How does this work?
     //Outlets are the same if they link two depressions, regardless of the
     //depressions' labels storage order within this class.
-    return (depa==o.depa && depb==o.depb) || (depa==o.depb && depb==o.depa);
+    return depa==o.depa && depb==o.depb;
   }
 };
 
@@ -152,10 +154,11 @@ class Outlet {
 template<class elev_t>
 struct OutletHash {
   std::size_t operator()(const OutletLink &out) const {
-    //XOR may not be the most robust key, but it is commutative, which means
-    //that the order in which the depressions are stored in the outlet doesn't
-    //affect the hash. (TODO: Use bit shifting to make a better hash)
-    return out.depa ^ out.depb;
+    //Since depa and depb are sorted on construction, we don't have to worry
+    //about which order the invoking code called them in and our hash function
+    //doesn't need to be symmetric with respect to depa and depb.
+    //Hash function from: https://stackoverflow.com/a/27952689/752843
+    return out.depa^(out.depb + 0x9e3779b9 + (out.depa << 6) + (out.depa >> 2));
   }
 };
 
