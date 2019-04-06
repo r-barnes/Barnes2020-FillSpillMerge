@@ -1,6 +1,7 @@
 #ifndef _dephier_hpp_
 #define _dephier_hpp_
 
+#include "radix_heap.hpp"
 #include <richdem/common/Array2D.hpp>
 #include <richdem/common/timer.hpp>
 #include <richdem/common/ProgressBar.hpp>
@@ -175,6 +176,10 @@ int ModFloor(int a, int n) {
 }
 
 
+template<class elev_t>
+using PriorityQueue = radix_heap::pair_radix_heap<elev_t,uint64_t>;
+
+
 
 //Cell is not part of a depression
 const dh_label_t NO_DEP = -1; 
@@ -256,17 +261,28 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
   //highest. If two or more cells are of equal elevation then the one added last
   //(most recently) is returned from the queue first. This ensures that a single
   //depression gets all the cells within a flat area.
-  GridCellZk_high_pq<elev_t> pq;
+  PriorityQueue<elev_t> pq;
 
   std::cerr<<"p Adding ocean cells to priority-queue..."<<std::endl;
   //We assume the user has already specified a few ocean cells from which to
   //begin looking for depressions. We add all of these ocean cells to the
   //priority queue now.
   int ocean_cells = 0;
+  #pragma omp parallel for collapse(2) reduction(+:ocean_cells)
   for(int y=0;y<dem.height();y++)
   for(int x=0;x<dem.width();x++){
-    if(label(x,y)==OCEAN){       //If they are ocean cells, put them in the priority queue
-      pq.emplace(x,y,dem(x,y));
+    if(label(x,y)!=OCEAN)
+      continue;
+    bool has_non_ocean = false;
+    for(int n=1;n<=neighbours;n++){
+      if(label.inGrid(x+dx[n],y+dy[n]) && label(x+dx[n],y+dy[n])!=OCEAN){
+        has_non_ocean = true;
+        break;
+      }
+    }
+    if(has_non_ocean){       //If they are ocean cells, put them in the priority queue
+      #pragma omp critical
+      pq.emplace(dem(x,y), dem.xyToI(x,y));
       ocean_cells++;
     }
   }
@@ -325,7 +341,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
     if(!has_lower){           //The cell can't drain, so it is a pit cell
       pit_cell_count++;       //Add to pit cell count. Parallel safe because of reduction.
       #pragma omp critical    //Only one thread can safely access pq at a time
-      pq.emplace(x,y,dem(x,y)); //Add cell to pq
+      pq.emplace(dem(x,y), dem.xyToI(x,y)); //Add cell to pq
     }
   }
   progress.stop();
@@ -375,11 +391,12 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
   while(!pq.empty()){
     ++progress;
 
-    const auto c = pq.top();               //Copy cell with lowest elevation from priority queue
+    const auto ci    = pq.top_value();     //Copy cell with lowest elevation from priority queue
+    const auto celev = pq.top_key();       //Elevation of focal cell
     pq.pop();                              //Remove the copied cell from the priority queue
-    const auto celev = c.z;                //Elevation of focal cell
-    const auto ci    = dem.xyToI(c.x,c.y); //Flat-index of focal cell
-    auto clabel      = label(ci);          //Nominal label of cell
+    auto clabel = label(ci);          //Nominal label of cell
+    int cx,cy;
+    dem.iToxy(ci,cx,cy);
 
     if(clabel==OCEAN){
       //This cell is an ocean cell or a cell that flows into the ocean without
@@ -395,7 +412,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
       //cell found in a flat determines the label for the entirety of that flat.
       clabel            = depressions.size();         //In a 0-based indexing system, size is equal to the id of the next flat
       auto &newdep      = depressions.emplace_back(); //Add the next flat (increases size by 1)
-      newdep.pit_cell   = dem.xyToI(c.x,c.y);         //Make a note of the pit cell's location
+      newdep.pit_cell   = dem.xyToI(cx,cy);         //Make a note of the pit cell's location
       newdep.pit_elev   = celev;                      //Make a note of the pit cell's elevation
       newdep.dep_label  = clabel;                     //I am storing the label in the object so that I can find it later and call up the number of cells and volume (better way of doing this?) -- I have since realised I can use the index in the depressions array. So perhaps the label is no longer needed?
       label(ci)         = clabel;                     //Update cell with new label                                                           
@@ -415,9 +432,9 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
 
     //Consider the cell's neighbours
     for(int n=1;n<=neighbours;n++){
-      // const int nx = ModFloor(c.x+dx[n],dem.width()); //Get neighbour's x-coordinate using an offset and wrapping
-      const int nx = c.x + dx[n];                     //Get neighbour's y-coordinate using an offset
-      const int ny = c.y + dy[n];                     //Get neighbour's y-coordinate using an offset
+      // const int nx = ModFloor(cx+dx[n],dem.width()); //Get neighbour's x-coordinate using an offset and wrapping
+      const int nx = cx + dx[n];                     //Get neighbour's y-coordinate using an offset
+      const int ny = cy + dy[n];                     //Get neighbour's y-coordinate using an offset
       if(!dem.inGrid(nx,ny))                          //Is this cell in the grid?
         continue;                                     //Nope: out of bounds.
       const auto ni     = dem.xyToI(nx,ny);           //Flat index of neighbour
@@ -425,7 +442,7 @@ DepressionHierarchy<elev_t> GetDepressionHierarchy(
 
       if(nlabel==NO_DEP){                             //Neighbour has not been visited yet 
         label(ni) = clabel;                           //Give the neighbour my label
-        pq.emplace(nx,ny,dem(ni));                    //Add the neighbour to the priority queue
+        pq.emplace(dem(ni), dem.xyToI(nx,ny));        //Add the neighbour to the priority queue
         flowdirs(nx,ny) = dinverse[n];                //Neighbour flows in the direction of this cell
       } else if (nlabel==clabel) {
         //Skip because we are not interested in ourself. That would be vain.
