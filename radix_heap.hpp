@@ -1,15 +1,18 @@
-#ifndef _radix_heap_h_
-#define _radix_heap_h_
-//git@github.com:iwiwi/radix-heap.git
+#pragma once
+#ifndef HEADER_RADIX_HEAP
+#define HEADER_RADIX_HEAP
+
 #include <algorithm>
 #include <array>
 #include <cassert>
 #include <climits>
 #include <cstdint>
+#include <iostream>
 #include <limits>
 #include <type_traits>
 #include <utility>
 #include <vector>
+#include <tuple>
 
 namespace radix_heap {
 namespace internal {
@@ -107,7 +110,48 @@ template<>
 class encoder<float> : public encoder_impl_decimal<float, uint32_t> {};
 template<>
 class encoder<double> : public encoder_impl_decimal<double, uint64_t> {};
+
+template <typename UIntDecType>
+class bucket_flags {
+ public:
+  typedef UIntDecType unsigned_key_type;
+
+  bucket_flags() {clear();}
+
+  void set_empty(size_t bucket) {
+    assert(bucket <= num_buckets);
+
+    flags_ &= ~((unsigned_key_type(1) << (bucket - 1)) * !!bucket);
+  }
+
+  void set_non_empty(unsigned int bucket) {
+    assert(bucket <= num_buckets);
+
+    flags_ |= (unsigned_key_type(1) << (bucket - 1)) * !!bucket;
+  }
+
+  void clear() {
+    flags_ = 0;
+  }
+
+  size_t find_first_non_empty() const {
+    if (sizeof(flags_) == 8)
+      return __builtin_ffsll(flags_);
+
+    return __builtin_ffs(flags_);
+  }
+
+  void swap(bucket_flags& a) {
+    std::swap(flags_, a.flags_);
+  }
+
+private:
+  unsigned_key_type flags_;
+  constexpr static size_t num_buckets = (sizeof(flags_) == 8 ? 64 : 32);
+};
 }  // namespace internal
+
+
 
 template<typename KeyType, typename EncoderType = internal::encoder<KeyType>>
 class radix_heap {
@@ -126,12 +170,20 @@ class radix_heap {
     ++size_;
     const size_t k = internal::find_bucket(x, last_);
     buckets_[k].emplace_back(x);
+    bucket_flags_.set_non_empty(k);
     buckets_min_[k] = std::min(buckets_min_[k], x);
   }
 
   key_type top() {
     pull();
     return encoder_type::decode(last_);
+  }
+
+  key_type min() const {
+    assert(size_ > 0);
+
+    const size_t i = bucket_flags_.find_first_non_empty() * buckets_[0].empty();
+    return encoder_type::decode(buckets_min_[i]);
   }
 
   void pop() {
@@ -152,6 +204,7 @@ class radix_heap {
     size_ = 0;
     last_ = key_type();
     for (auto &b : buckets_) b.clear();
+    bucket_flags_.clear();
     buckets_min_.fill(std::numeric_limits<unsigned_key_type>::max());
   }
 
@@ -160,6 +213,7 @@ class radix_heap {
     std::swap(last_, a.last_);
     buckets_.swap(a.buckets_);
     buckets_min_.swap(a.buckets_min_);
+    bucket_flags_.swap(a.bucket_flags_);
   }
 
  private:
@@ -170,20 +224,24 @@ class radix_heap {
   std::array<unsigned_key_type,
              std::numeric_limits<unsigned_key_type>::digits + 1> buckets_min_;
 
+  internal::bucket_flags<unsigned_key_type> bucket_flags_;
+
   void pull() {
     assert(size_ > 0);
     if (!buckets_[0].empty()) return;
 
-    size_t i;
-    for (i = 1; buckets_[i].empty(); ++i);
+    const size_t i = bucket_flags_.find_first_non_empty();
     last_ = buckets_min_[i];
 
     for (unsigned_key_type x : buckets_[i]) {
       const size_t k = internal::find_bucket(x, last_);
       buckets_[k].emplace_back(x);
+      bucket_flags_.set_non_empty(k);
       buckets_min_[k] = std::min(buckets_min_[k], x);
     }
+
     buckets_[i].clear();
+    bucket_flags_.set_empty(i);
     buckets_min_[i] = std::numeric_limits<unsigned_key_type>::max();
   }
 };
@@ -195,6 +253,7 @@ class pair_radix_heap {
   typedef ValueType value_type;
   typedef EncoderType encoder_type;
   typedef typename encoder_type::unsigned_key_type unsigned_key_type;
+  typedef typename std::vector<std::pair<key_type, value_type> >::const_iterator value_iterator;
 
   pair_radix_heap() : size_(0), last_(), buckets_() {
     buckets_min_.fill(std::numeric_limits<unsigned_key_type>::max());
@@ -206,6 +265,7 @@ class pair_radix_heap {
     ++size_;
     const size_t k = internal::find_bucket(x, last_);
     buckets_[k].emplace_back(x, value);
+    bucket_flags_.set_non_empty(k);
     buckets_min_[k] = std::min(buckets_min_[k], x);
   }
 
@@ -215,6 +275,7 @@ class pair_radix_heap {
     ++size_;
     const size_t k = internal::find_bucket(x, last_);
     buckets_[k].emplace_back(x, std::move(value));
+    bucket_flags_.set_non_empty(k);
     buckets_min_[k] = std::min(buckets_min_[k], x);
   }
 
@@ -226,7 +287,15 @@ class pair_radix_heap {
     const size_t k = internal::find_bucket(x, last_);
     buckets_[k].emplace_back(std::piecewise_construct,
                              std::forward_as_tuple(x), std::forward_as_tuple(args...));
+    bucket_flags_.set_non_empty(k);
     buckets_min_[k] = std::min(buckets_min_[k], x);
+  }
+
+  key_type min_key() const {
+    assert(size_ > 0);
+    const size_t i = buckets_[0].empty() ? bucket_flags_.find_first_non_empty() : 0;
+    assert(last_ <= buckets_min_[i]);
+    return encoder_type::decode(buckets_min_[i]);
   }
 
   key_type top_key() {
@@ -239,10 +308,30 @@ class pair_radix_heap {
     return buckets_[0].back().second;
   }
 
+  std::tuple<value_iterator, value_iterator> top_values() {
+    pull();
+    return std::forward_as_tuple(buckets_[0].cbegin(), buckets_[0].cend());
+  }
+
   void pop() {
     pull();
     buckets_[0].pop_back();
     --size_;
+  }
+
+  void pop_top_values() {
+      pull();
+      size_ -= buckets_[0].size();
+      buckets_[0].clear();
+  }
+
+
+  std::vector<std::pair<unsigned_key_type, value_type> > extract_top_values() {
+    pull();
+    std::vector<std::pair<unsigned_key_type, value_type> > vec;
+    size_ -= buckets_[0].size();
+    buckets_[0].swap(vec);
+    return vec;
   }
 
   size_t size() const {
@@ -258,11 +347,13 @@ class pair_radix_heap {
     last_ = key_type();
     for (auto &b : buckets_) b.clear();
     buckets_min_.fill(std::numeric_limits<unsigned_key_type>::max());
+    bucket_flags_.clear();
   }
 
   void swap(pair_radix_heap<KeyType, ValueType, EncoderType> &a) {
     std::swap(size_, a.size_);
     std::swap(last_, a.last_);
+    bucket_flags_.swap(a.bucket_flags_);
     buckets_.swap(a.buckets_);
     buckets_min_.swap(a.buckets_min_);
   }
@@ -275,24 +366,29 @@ class pair_radix_heap {
   std::array<unsigned_key_type,
              std::numeric_limits<unsigned_key_type>::digits + 1> buckets_min_;
 
+  internal::bucket_flags<unsigned_key_type> bucket_flags_;
+
   void pull() {
     assert(size_ > 0);
     if (!buckets_[0].empty()) return;
+    buckets_min_[0] = std::numeric_limits<unsigned_key_type>::max();
 
-    size_t i;
-    for (i = 1; buckets_[i].empty(); ++i);
+    const size_t i = bucket_flags_.find_first_non_empty();
     last_ = buckets_min_[i];
 
     for (size_t j = 0; j < buckets_[i].size(); ++j) {
       const unsigned_key_type x = buckets_[i][j].first;
       const size_t k = internal::find_bucket(x, last_);
       buckets_[k].emplace_back(std::move(buckets_[i][j]));
+      bucket_flags_.set_non_empty(k);
       buckets_min_[k] = std::min(buckets_min_[k], x);
     }
+
     buckets_[i].clear();
+    bucket_flags_.set_empty(i);
     buckets_min_[i] = std::numeric_limits<unsigned_key_type>::max();
   }
 };
 }  // namespace radix_heap
 
-#endif
+#endif // HEADER_RADIX_HEAP
