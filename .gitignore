@@ -1,3 +1,4 @@
 *.nc
 a.out
 *.exe
+build/
