@@ -1,5 +1,5 @@
 #include "fill_spill_merge.hpp"
-#include "../common/netcdf.hpp"
+#include "netcdf.hpp"
 #include <iostream>
 #include <richdem/common/Array2D.hpp>
 #include <string>
@@ -25,7 +25,7 @@ int main(int argc, char **argv){
 
   rd::Timer timer_io;
   timer_io.start();
-  rd::Array2D<float> topo = LoadData<float>(in_name,std::string("value"));   //Recharge (Percipitation minus Evapotranspiration)
+  rd::Array2D<float> topo(in_name);   //Recharge (Percipitation minus Evapotranspiration)
   timer_io.stop();
 
   std::cout<<"m Data width  = "<<topo.width ()<<std::endl;

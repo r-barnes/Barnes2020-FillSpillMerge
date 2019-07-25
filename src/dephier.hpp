@@ -8,7 +8,7 @@
 #include <richdem/common/grid_cell.hpp>
 #include <richdem/common/constants.hpp>
 #include "DisjointDenseIntSet.hpp"
-#include "../common/netcdf.hpp"
+#include "netcdf.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cmath>

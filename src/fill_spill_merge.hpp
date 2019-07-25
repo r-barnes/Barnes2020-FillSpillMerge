@@ -3,7 +3,7 @@
 
 #include "dephier.hpp"
 #include "DisjointDenseIntSet.hpp"
-#include "../common/netcdf.hpp"
+#include "netcdf.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cmath>

@@ -8,8 +8,8 @@ export DS_LIB_FLAGS=-Iparallel-hashmap
 #export LIBS=-lnetcdf
 
 
-a.out: main.cpp DisjointDenseIntSet.hpp dephier.hpp ../common/netcdf.hpp Makefile fill_spill_merge.hpp
-	$(CXX) $(GDAL_CFLAGS) $(DS_LIB_FLAGS) $(CXXFLAGS) $(RD_CXX_FLAGS) -o dephier.exe main.cpp ../common/richdem/include/richdem/richdem.cpp $(LIBS) $(GDAL_LIBS)
+a.out: src/main.cpp src/DisjointDenseIntSet.hpp src/dephier.hpp ../common/netcdf.hpp src/fill_spill_merge.hpp Makefile 
+	$(CXX) $(GDAL_CFLAGS) $(DS_LIB_FLAGS) $(CXXFLAGS) $(RD_CXX_FLAGS) -o dephier.exe src/main.cpp ../common/richdem/include/richdem/richdem.cpp $(LIBS) $(GDAL_LIBS)
 
 clean:
 	rm a.out
