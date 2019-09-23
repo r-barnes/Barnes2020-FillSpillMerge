@@ -42,5 +42,5 @@ Run
 
     mkdir build
     cd build
-    cmake ..
+    cmake -DCMAKE_BUILD_TYPE=Release ..
     make -j 4 #Set to number of CPUs for a faster compilation

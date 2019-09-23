@@ -2,6 +2,10 @@ cmake_minimum_required (VERSION 3.9)
 
 project (dephier)
 
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+
+find_package(NetCDF)
+
 add_subdirectory(submodules/richdem)
 
 include_directories(submodules)
