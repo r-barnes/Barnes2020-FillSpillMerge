@@ -9,15 +9,14 @@ namespace rd = richdem;
 namespace dh = richdem::dephier;
 
 int main(int argc, char **argv){
-  if(argc!=5){
-    std::cout<<"Syntax: "<<argv[0]<<" <Input> <Output> <OutGraph> <Ocean Level>"<<std::endl;
+  if(argc!=4){
+    std::cout<<"Syntax: "<<argv[0]<<" <Input> <Output> <Ocean Level>"<<std::endl;
     return -1;
   }
 
   const std::string in_name     = argv[1];
   const std::string out_name    = argv[2];
-  const std::string out_graph   = argv[3];
-  const float       ocean_level = std::stod(argv[4]);
+  const float       ocean_level = std::stod(argv[3]);
 
   std::cout<<"m Processing    = "<<argv[1]<<std::endl;
   std::cout<<"m Output prefix = "<<argv[2]<<std::endl;
@@ -53,20 +52,6 @@ int main(int argc, char **argv){
   auto deps = dh::GetDepressionHierarchy<float,rd::Topology::D8>(topo, label, flowdirs);
 
   dh::FillSpillMerge(topo, label, flowdirs, deps, wtd, ocean_level);
-
-  //TODO: Remove. For viewing test cases.
-  if(label.width()<1000){
-    //GraphViz dot-style output for drawing depression hierarchy graphs.
-    std::ofstream fgraph(out_graph);
-    fgraph<<"digraph {\n";
-    for(unsigned int i=0;i<deps.size();i++){
-      fgraph<<i<<" -> "<<deps[i].parent;
-      if(deps[i].parent!=dh::NO_VALUE && (deps[i].parent==dh::OCEAN || !(deps[deps[i].parent].lchild==i || deps[deps[i].parent].rchild==i)))
-        fgraph<<" [color=\"blue\"]";
-      fgraph<<";\n";
-    }
-    fgraph<<"}\n";
-  }
 
   for(unsigned int i=0;i<topo.size();i++)
     if(!topo.isNoData(i))

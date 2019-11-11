@@ -38,9 +38,21 @@ tests are available on Github and Zenodo.
 Compilation
 -----------
 
-Run
+Be sure to acquire submodules either upon initially obtaining the repository:
+
+    git clone --recurse-submodules -j8 https://github.com/r-barnes/Barnes2019-DepressionHierarchy.git
+
+Or afterwards by using the following within the repository itself:
+
+    git submodule --update --recursive
+
+Afterwards, compile:
 
     mkdir build
     cd build
     cmake -DCMAKE_BUILD_TYPE=Release ..
     make -j 4 #Set to number of CPUs for a faster compilation
+
+Run with:
+
+    ./build/dephier.exe <Input> <Output> <OutGraph> <Ocean Level>
