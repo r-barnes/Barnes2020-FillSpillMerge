@@ -1,3 +1,5 @@
+[![DOI](https://zenodo.org/badge/179896888.svg)](https://zenodo.org/badge/latestdoi/179896888)
+
 Depression Hierarchies and Fill-Spill-Merge
 ===========================================
 
