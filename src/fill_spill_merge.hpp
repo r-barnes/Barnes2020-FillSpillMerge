@@ -316,7 +316,7 @@ static void MoveWaterIntoPits(
 ///In this function we will perform a depth-first post-order traversal of the
 ///depression hierarchy starting with the OCEAN. When we reach the leaf
 ///depressions we check if `water_vol>dep_vol`. If so, we try to overflow into
-///the geographically proximal leaf depression indicaed by our outlet. If there
+///the geographically proximal leaf depression indicated by our outlet. If there
 ///is not sufficient room in the depression linked to by our outlet to hold all
 ///the water, then the excess is passed to the depression's parent.
 ///
