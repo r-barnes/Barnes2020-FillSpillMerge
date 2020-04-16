@@ -1,4 +1,4 @@
-#include "fill_spill_merge.hpp"
+#include <fsm/fill_spill_merge.hpp>
 #include "netcdf.hpp"
 #include <iostream>
 #include <richdem/common/Array2D.hpp>
