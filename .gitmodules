@@ -2,3 +2,6 @@
 	path = submodules/richdem
 	url = https://github.com/r-barnes/richdem.git
 	branch = dev
+[submodule "submodules/Barnes2019-DepressionHierarchy"]
+	path = submodules/dephier
+	url = https://github.com/r-barnes/Barnes2019-DepressionHierarchy.git
