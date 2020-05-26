@@ -129,9 +129,11 @@ void FillSpillMerge(
 ){
   Timer timer_overall;
   timer_overall.start();
-  
+ 
+
   //We move standing water downhill to the pit cells of each depression
   MoveWaterIntoPits(topo, label, flowdirs, deps, wtd);
+
 
   { 
     //Scope to limit `timer_overflow` and `jump_table`. Also ensures
@@ -373,13 +375,15 @@ static void MoveWaterInDepHier(
     const auto lchild = this_dep.lchild;
     const auto rchild = this_dep.rchild;
 
+
     //Only if both children are full should their water make its way to this
     //parent
     if(lchild!=NO_VALUE
       && deps.at(lchild).water_vol==deps.at(lchild).dep_vol
       && deps.at(rchild).water_vol==deps.at(rchild).dep_vol
+      && deps.at(this_dep.dep_label).water_vol < FP_ERROR  
     )
-    this_dep.water_vol += deps.at(lchild).water_vol + deps.at(rchild).water_vol;
+    this_dep.water_vol += deps.at(lchild).dep_vol + deps.at(rchild).dep_vol;
   }
 
   //Each depression has an associated dep_vol. This is the TOTAL volume of the
@@ -511,14 +515,17 @@ static dh_label_t OverflowInto(
   //it's time to stop. (This may be the leaf node of another metadepression, the
   //ocean, or a standard node.)
   if(root==stop_node){                   //We've made a loop, so everything is full
-    if(this_dep.parent==OCEAN)           //If our parent is the ocean
+    if(this_dep.parent==OCEAN){           //If our parent is the ocean
+      this_dep.water_vol = std::min(this_dep.dep_vol,this_dep.water_vol + extra_water);
       return OCEAN;                      //Then the extra water just goes away
+    }
     else                                 //Otherwise
       this_dep.water_vol += extra_water; //This node, the original node's parent, gets the extra water
     return stop_node;
   }
 
-  if(this_dep.water_vol<this_dep.dep_vol){                                              //Can this depression hold any water?
+  if(this_dep.water_vol<this_dep.dep_vol){
+	  //Can this depression hold any water?
     const double capacity = this_dep.dep_vol - this_dep.water_vol;                      //Yes. How much can it hold?
     if(extra_water<capacity){                                                           //Is it enough to hold all the extra water?
       this_dep.water_vol  = std::min(this_dep.water_vol+extra_water,this_dep.dep_vol);  //Yup. But let's be careful about floating-point stuff
@@ -539,18 +546,19 @@ static dh_label_t OverflowInto(
   //SECOND PLACE TO STASH WATER: IN THIS DEPRESSION'S NEIGHBOUR
   //Maybe we can fit it into this depression's overflow depression!
 
+
   auto &pdep = deps.at(this_dep.parent);
   if(this_dep.odep==NO_VALUE){      //Does the depression even have such a neighbour? 
-    if(this_dep.parent!=OCEAN && pdep.water_vol==0) //At this point we're full and heading to our parent, so it needs to know that it contains our water
-      pdep.water_vol += this_dep.water_vol;
+    if(this_dep.parent!=OCEAN && pdep.water_vol==0 && (pdep.lchild == this_dep.dep_label || pdep.rchild == this_dep.dep_label)) //At this point we're full and heading to our parent, so it needs to know that it contains our water
+      pdep.water_vol += deps.at(pdep.lchild).dep_vol + deps.at(pdep.rchild).dep_vol;//this_dep.water_vol;
     return jump_table[root] = OverflowInto(this_dep.parent, stop_node, deps, jump_table, extra_water);  //Nope. Pass the water to the parent
   }
 
   //Can overflow depression hold more water?
   auto &odep = deps.at(this_dep.odep);
   if(odep.water_vol<odep.dep_vol){  //Yes. Move the water geographically into that depression's leaf.
-    if(this_dep.parent!=OCEAN && pdep.water_vol==0 && odep.water_vol+extra_water>odep.dep_vol) //It might take a while, but our neighbour will overflow, so our parent needs to know about our water volumes
-      pdep.water_vol += this_dep.water_vol + odep.dep_vol;           //Neighbour's water_vol will equal its dep_vol
+    if(this_dep.parent!=OCEAN && pdep.water_vol==0 && odep.water_vol+extra_water>odep.dep_vol && (pdep.lchild == odep.dep_label || pdep.rchild == odep.dep_label) && (pdep.lchild == this_dep.dep_label || pdep.rchild == this_dep.dep_label)) //It might take a while, but our neighbour will overflow, so our parent needs to know about our water volumes
+      pdep.water_vol += this_dep.dep_vol + odep.dep_vol;           //Neighbour's water_vol will equal its dep_vol
     return jump_table[root] = OverflowInto(this_dep.geolink, stop_node, deps, jump_table, extra_water);
   }
 
@@ -560,8 +568,9 @@ static dh_label_t OverflowInto(
   //If we've got here we have a neighbour, but we couldn't stash water in the
   //neighbour because it was full. So we need to see if our parent knows about
   //us.
-  if(this_dep.parent!=OCEAN && pdep.water_vol==0)
-    pdep.water_vol += this_dep.water_vol + odep.water_vol;
+  if(this_dep.parent!=OCEAN && pdep.water_vol==0 && (pdep.lchild == this_dep.dep_label || pdep.rchild == this_dep.dep_label) && (pdep.lchild == odep.dep_label || pdep.rchild == odep.dep_label))
+    pdep.water_vol += this_dep.dep_vol + odep.dep_vol;
+
 
   //THIRD PLACE TO STASH WATER: IN THIS DEPRESSION'S PARENT
   return jump_table[root] = OverflowInto(this_dep.parent, stop_node, deps, jump_table, extra_water);
@@ -747,6 +756,7 @@ static void FillDepressions(
   //Nothing to do if we have no water
   if(water_vol==0)
     return;
+
 
   //Hashset stores the ids of the cells we've visited. We don't want to use a 2D
   //array because the size of the DEM as a whole could be massive and that's a
