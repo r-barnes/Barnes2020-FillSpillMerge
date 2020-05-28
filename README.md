@@ -55,7 +55,7 @@ Be sure to acquire submodules either upon initially obtaining the repository:
 
 Or afterwards by using the following within the repository itself:
 
-    git submodule --update --recursive
+    git submodule update --recursive
 
 Afterwards, compile:
 
