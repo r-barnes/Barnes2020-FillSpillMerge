@@ -686,7 +686,8 @@ static SubtreeDepressionInfo FindDepressionsToFill(
   //water will have been transferred into the parent and we don't want to pool
   //the parent's water with our own (it might be at the bottom of a cliff).
 
-  if(this_dep.water_vol<this_dep.dep_vol || this_dep.ocean_parent){
+  if(this_dep.water_vol<this_dep.dep_vol || this_dep.ocean_parent \
+     || (this_dep.water_vol == this_dep.dep_vol && deps.at(this_dep.parent).water_vol == 0)) {
     assert(this_dep.water_vol<=this_dep.dep_vol);
 
     //If both of a depression's children have already spread their water, we do not
