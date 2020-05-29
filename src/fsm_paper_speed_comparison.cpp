@@ -36,13 +36,20 @@ int main(int argc, char **argv){
 
   //Label the ocean cells. This is a precondition for using
   //`GetDepressionHierarchy()`.
+
+  int ocean_level_exists = 0;
   #pragma omp parallel for
   for(unsigned int i=0;i<label.size();i++){
     if(topo.isNoData(i) || topo(i)==ocean_level){ //Ocean Level is assumed to be lower than any other cells (even Death Valley)
       label(i) = dh::OCEAN;
       wtd  (i) = 0;
     }
+    if(topo(i) == ocean_level)
+      ocean_level_exists = 1;
   }
+
+  if(ocean_level_exists == 0)
+    throw std::runtime_error("There are no ocean_level cells in this topography!");
 
   //Generate flow directions, label all the depressions, and get the hierarchy
   //connecting them
