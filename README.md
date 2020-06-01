@@ -45,6 +45,18 @@ a more accurate output. Complete, well-commented, open-source code is available
 on Github and Zenodo.
 
 
+Prerequisites
+-------------
+
+Install the prerequisites
+
+### Linux
+
+    sudo apt install libnetcdf-dev cmake
+
+### Mac
+
+    brew install gdal netcdf libomp cmake
 
 Compilation
 -----------

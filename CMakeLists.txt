@@ -4,7 +4,7 @@ project (dephier)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-find_package(NetCDF)
+find_package(NetCDF REQUIRED)
 
 add_subdirectory(submodules/dephier EXCLUDE_FROM_ALL)
 
