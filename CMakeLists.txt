@@ -15,11 +15,11 @@ target_link_libraries(fsm INTERFACE dephier)
 include_directories(submodules)
 
 add_executable(fsm_paper_tests.exe src/fsm_paper_tests.cpp)
-target_link_libraries(fsm_paper_tests.exe PRIVATE fsm richdem netcdf)
+target_link_libraries(fsm_paper_tests.exe PRIVATE fsm richdem ${NETCDF_LIBRARIES})
 target_compile_features(fsm_paper_tests.exe PUBLIC cxx_auto_type cxx_std_17)
 
 add_executable(fsm_paper_speed_comparison.exe src/fsm_paper_speed_comparison.cpp)
-target_link_libraries(fsm_paper_speed_comparison.exe PRIVATE fsm richdem netcdf)
+target_link_libraries(fsm_paper_speed_comparison.exe PRIVATE fsm richdem ${NETCDF_LIBRARIES})
 target_compile_features(fsm_paper_speed_comparison.exe PUBLIC cxx_auto_type cxx_std_17)
 
 install(TARGETS fsm_paper_tests.exe DESTINATION bin)
