@@ -62,7 +62,22 @@ Install the prerequisites
 
 ### Mac
 
-    brew install gdal netcdf libomp cmake
+    brew install gdal netcdf libomp cmake llvm
+
+Additional setup
+----------------
+
+### Mac
+
+*Here we assume that you are using the Anaconda Python distribution.*
+
+These additional possible requirements to compile Fill-Spill-Merge on MacOSX stem from the fact that those users with the [Anaconda Python distribution now comes packaged with its own compilers](https://www.anaconda.com/blog/utilizing-the-new-compilers-in-anaconda-distribution-5). This issue may exist in Linux as well, though due to the extensive and well-integrated `apt` repositories, Linux users are less likely to install Anaconda Python.
+
+1. Download MacOSX10.9.sdk from https://github.com/phracker/MacOSX-SDKs and place it in /opt/MacOSX10.9.sdk
+2. Point the cmake compiler at this SDK:
+```
+export CONDA_BUILD_SYSROOT=/opt/MacOSX10.9.sdk
+```
 
 Compilation
 -----------
@@ -77,7 +92,19 @@ Or afterwards by using the following within the repository itself:
 
 Afterwards, compile:
 
+### Linux
+
     mkdir build
     cd build
     cmake -DCMAKE_BUILD_TYPE=Release ..
-    make -j 4 #Set to number of CPUs for a faster compilation
+    make -j 4 # Set to number of CPUs for a faster compilation (4 here)
+
+### Mac
+
+    mkdir build
+    cd build
+    # Be sure to repoint the versioning in the following as necessary:
+    cmake -D CMAKE_C_COMPILER="/usr/local/Cellar/llvm/10.0.0_3/bin/clang" \
+          -D CMAKE_CXX_COMPILER="/usr/local/Cellar/llvm/10.0.0_3/bin/clang++" \
+          -DCMAKE_BUILD_TYPE=Release ..
+    make -j 4 # Set to number of CPUs for a faster compilation (4 here)
