@@ -64,6 +64,10 @@ Install the prerequisites
 
     brew install gdal netcdf libomp cmake llvm
 
+(GDAL should not be necessary for installation, but is recommended.)
+
+
+
 Additional setup
 ----------------
 
