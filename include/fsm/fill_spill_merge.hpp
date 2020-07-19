@@ -85,7 +85,7 @@ void FillDepressions(
   const int                             pit_cell,
   const std::unordered_set<dh_label_t> &dep_labels,
   double                                water_vol,
-  const Array2D<float>                 &topo,
+  const Array2D<elev_t>                &topo,
   const Array2D<dh_label_t>            &label,
   Array2D<wtd_t>                       &wtd,
   const elev_t                          ocean_level
