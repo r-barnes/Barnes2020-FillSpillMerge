@@ -1,7 +1,9 @@
 #include <fsm/fill_spill_merge.hpp>
-#include "netcdf.hpp"
-#include <iostream>
+#include <fsm/netcdf.hpp>
+
 #include <richdem/common/Array2D.hpp>
+
+#include <iostream>
 #include <string>
 #include <stdexcept>
 
