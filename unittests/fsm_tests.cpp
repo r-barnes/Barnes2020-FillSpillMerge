@@ -13,6 +13,23 @@ double MaxArrayDiff(const Array2D<T> &a, const Array2D<T> &b){
   return max_diff;
 }
 
+template<class T>
+bool ArrayValuesEqual(const Array2D<T> &a, const Array2D<T> &b){
+  for(auto i=a.i0();i<a.size();i++){
+    if(a(i)!=b(i))
+      return false;
+  }
+  return true;
+}
+
+template<class T>
+bool ArrayValuesAllEqual(const Array2D<T> &a, const T val){
+  for(auto i=a.i0();i<a.size();i++){
+    if(a(i)!=val)
+      return false;
+  }
+  return true;
+}
 
 
 TEST_CASE("Depression volume"){
@@ -45,6 +62,85 @@ TEST_CASE("Determine water level"){
     CHECK(water_level==4);
   }
 }
+
+
+
+TEST_CASE("MoveWaterIntoPits 1"){
+  const Array2D<double> topo = {
+      {-9, -9, -9, -9, -9, -9, -9, -9, -9, -9},
+      {-9,  9,  9,  9,  9,  9,  9,  9,  9, -9},
+      {-9,  9,  8,  8,  8,  8,  7,  6,  9, -9},
+      {-9,  9,  8,  7,  8,  7,  6,  5,  9, -9},
+      {-9,  9,  8,  7,  8,  6,  5,  4,  9, -9},
+      {-9,  9,  8,  8,  8,  5,  4,  3,  9, -9},
+      {-9,  9,  7,  6,  5,  4,  3,  2,  9, -9},
+      {-9,  9,  7,  6,  5,  4,  3,  1,  9, -9},
+      {-9,  9,  9,  9,  9,  9,  9,  9,  9, -9},
+      {-9, -9, -9, -9, -9, -9, -9, -9, -9, -9},
+  };
+
+  Array2D<dh_label_t> label(topo.width(), topo.height(), NO_DEP);
+  for(int y=0;y<topo.height();y++)
+  for(int x=0;x<topo.width();x++){
+    if(topo.isEdgeCell(x,y))
+      label(x,y) = OCEAN;
+  }
+
+  Array2D<flowdir_t> flowdirs(topo.width(), topo.height(), NO_FLOW);
+  Array2D<double> wtd(topo.width(), topo.height(), 0);
+
+  auto DH = GetDepressionHierarchy<double,Topology::D8>(topo, label, flowdirs);
+
+  const Array2D<dh_label_t> label_good = {
+    {0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0},
+    {0,0,2,2,1,1,1,1,0,0},
+    {0,0,2,2,1,1,1,1,0,0},
+    {0,0,2,2,1,1,1,1,0,0},
+    {0,0,1,1,1,1,1,1,0,0},
+    {0,0,1,1,1,1,1,1,0,0},
+    {0,0,1,1,1,1,1,1,0,0},
+    {0,0,0,0,0,0,0,0,0,0},
+    {0,0,0,0,0,0,0,0,0,0}
+  };
+
+  const Array2D<flowdir_t> flowdirs_good = {
+    {0,0,0,0,0,0,0,0,0,0},
+    {0,8,4,4,4,4,4,4,6,0},
+    {0,8,6,7,6,6,6,7,6,0},
+    {0,8,6,7,6,6,6,7,6,0},
+    {0,8,5,0,6,6,6,7,6,0},
+    {0,8,6,6,6,6,6,7,6,0},
+    {0,8,6,5,6,5,6,7,6,0},
+    {0,8,5,4,5,4,5,0,6,0},
+    {0,6,6,6,6,6,6,6,6,0},
+    {0,0,0,0,0,0,0,0,0,0}
+  };
+
+  CHECK(ArrayValuesEqual(label,label_good));
+  CHECK(ArrayValuesEqual(flowdirs,flowdirs_good));
+
+  wtd.setAll(1);
+
+  MoveWaterIntoPits<double, double>(topo, label, flowdirs, DH, wtd);
+
+  CHECK(ArrayValuesAllEqual(wtd,0.0));
+
+  CHECK(DH.at(0).water_vol==64);
+  CHECK(DH.at(1).water_vol==30);
+  CHECK(DH.at(2).water_vol== 6);
+
+  CHECK(DH.at(0).parent==NO_VALUE);
+  CHECK(DH.at(1).parent==3);
+  CHECK(DH.at(2).parent==3);
+  CHECK(DH.at(3).parent==0);
+
+  CHECK(std::isnan(DH.at(0).dep_vol));
+  CHECK(DH.at(1).dep_vol== 73);
+  CHECK(DH.at(2).dep_vol==  2);
+  CHECK(DH.at(3).dep_vol==111);
+}
+//TODO: Add second test case with more tests and clearer outlets
 
 
 
@@ -86,7 +182,7 @@ TEST_CASE("Backfill Depression"){
       { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
   };
 
-  CHECK(wtd==wtd_good);
+  CHECK(ArrayValuesEqual(wtd,wtd_good));
 }
 
 TEST_CASE("FillDepressions"){
