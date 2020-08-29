@@ -37,6 +37,9 @@ add_executable(fsm_paper_scaling_tests.exe paper/fsm_paper_scaling_tests.cpp)
 target_link_libraries(fsm_paper_scaling_tests.exe PRIVATE fsm richdem ${NETCDF_LIBRARIES})
 target_compile_features(fsm_paper_scaling_tests.exe PUBLIC cxx_auto_type cxx_std_17)
 
+add_executable(fsm.exe src/main.cpp)
+target_link_libraries(fsm.exe PRIVATE fsm richdem ${NETCDF_LIBRARIES})
+target_compile_features(fsm.exe PUBLIC cxx_auto_type cxx_std_17)
 
 
 add_executable(fsm_unittests.exe
