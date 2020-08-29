@@ -70,13 +70,13 @@ static dh_label_t OverflowInto(
 
 class SubtreeDepressionInfo;
 
-template<class elev_t>
+template<class elev_t, class wtd_t>
 static SubtreeDepressionInfo FindDepressionsToFill(
   const int                          current_depression,
   const DepressionHierarchy<elev_t> &deps,
-  const Array2D<float>              &topo,
+  const Array2D<elev_t>             &topo,
   const Array2D<dh_label_t>         &label,
-  Array2D<float>                    &wtd,
+  Array2D<wtd_t>                    &wtd,
   const elev_t                       ocean_level            //Elevation of the ocean
 );
 
