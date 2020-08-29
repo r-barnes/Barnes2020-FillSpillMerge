@@ -112,3 +112,7 @@ Afterwards, compile:
           -D CMAKE_CXX_COMPILER="/usr/local/Cellar/llvm/10.0.0_3/bin/clang++" \
           -DCMAKE_BUILD_TYPE=Release ..
     make -j 4 # Set to number of CPUs for a faster compilation (4 here)
+
+### Additional options
+
+ * Use `-DCODE_COVERAGE=ON` to enable code coverage report generation
