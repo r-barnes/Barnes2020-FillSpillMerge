@@ -155,6 +155,8 @@ void FillSpillMerge(
   Timer timer_overall;
   timer_overall.start();
 
+  std::cerr<<"\033[91m##########Performing FillSpillMerge\033[39m"<<std::endl;
+
   //We move standing water downhill to the pit cells of each depression
   MoveWaterIntoPits(topo, label, flowdirs, deps, wtd);
 
