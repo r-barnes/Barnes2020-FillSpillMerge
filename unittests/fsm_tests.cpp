@@ -36,6 +36,17 @@ bool ArrayValuesAllEqual(const Array2D<T> &a, const T val){
 }
 
 
+
+Array2D<double> random_terrain(){
+  static std::mt19937_64 gen;
+  static std::uniform_int_distribution<int>      size_dist(30,500);
+  static std::uniform_int_distribution<uint32_t> seed_dist;
+
+  return perlin(size_dist(gen), seed_dist(gen));
+}
+
+
+
 TEST_CASE("Depression volume"){
   CHECK(DepressionVolume(2, 5, 10)==0);
   CHECK(DepressionVolume(3, 5, 10)==5);
@@ -323,20 +334,11 @@ TEST_CASE("FillDepressions"){
 
 
 TEST_CASE("Randomized Heavy Flooding vs Priority-Flood"){
-  std::mt19937_64 gen;
-  std::uniform_int_distribution<int>      size_dist(30,500);
-  std::uniform_int_distribution<uint32_t> seed_dist;
-
   #pragma omp parallel for
   for(int i=0;i<500;i++){
-    int      this_size;
-    uint32_t this_seed;
+    Array2D<double> dem;
     #pragma omp critical
-    {
-      this_size = size_dist(gen);
-      this_seed = seed_dist(gen);
-    }
-    auto dem = perlin(this_size, this_seed);
+    dem = random_terrain();
 
     Array2D<dh_label_t> labels  (dem.width(), dem.height(), NO_DEP );
     Array2D<flowdir_t>  flowdirs(dem.width(), dem.height(), NO_FLOW);
@@ -365,5 +367,45 @@ TEST_CASE("Randomized Heavy Flooding vs Priority-Flood"){
     PriorityFlood_Zhou2016(comparison_dem);
 
     CHECK(MaxArrayDiff(comparison_dem,dem)<1e-6);
+  }
+}
+
+
+
+TEST_CASE("Randomized Testing of Repeated FSM"){
+  #pragma omp parallel for
+  for(int i=0;i<500;i++){
+    Array2D<double> dem;
+    #pragma omp critical
+    dem = random_terrain();
+
+    Array2D<dh_label_t> label   (dem.width(), dem.height(), NO_DEP);
+    Array2D<flowdir_t>  flowdirs(dem.width(), dem.height(), NO_FLOW);
+    Array2D<double>     wtd     (dem.width(), dem.height(), 0);
+
+    auto do_fsm = [&](){
+      //Make sure the edges are identifiable as an ocean
+      label.setAll(NO_DEP);
+      for(int y=0;y<dem.height();y++)
+      for(int x=0;x<dem.width();x++)
+        if(dem.isEdgeCell(x,y)){
+          dem(x,y) = -1;
+          label(x,y) = OCEAN;
+        }
+
+      auto DH = GetDepressionHierarchy<double,Topology::D8>(dem, label, flowdirs);
+      FillSpillMerge(dem, label, flowdirs, DH, wtd, -1.0);
+    };
+
+    //Initially distribute the water
+    wtd.setAll(1);
+    do_fsm();
+
+    const auto first_wtd = wtd;
+
+    //Distribute it a second time
+    do_fsm();
+
+    CHECK(MaxArrayDiff(first_wtd,wtd)<1e-6);
   }
 }
