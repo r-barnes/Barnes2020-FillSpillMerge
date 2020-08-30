@@ -378,8 +378,9 @@ static void MoveWaterInDepHier(
     if(lchild!=NO_VALUE
       && deps.at(lchild).water_vol==deps.at(lchild).dep_vol
       && deps.at(rchild).water_vol==deps.at(rchild).dep_vol
+      && deps.at(this_dep.dep_label).water_vol < FP_ERROR
     )
-    this_dep.water_vol += deps.at(lchild).water_vol + deps.at(rchild).water_vol;
+    this_dep.water_vol += deps.at(lchild).dep_vol + deps.at(rchild).dep_vol;
   }
 
   //Each depression has an associated dep_vol. This is the TOTAL volume of the
@@ -511,8 +512,10 @@ static dh_label_t OverflowInto(
   //it's time to stop. (This may be the leaf node of another metadepression, the
   //ocean, or a standard node.)
   if(root==stop_node){                   //We've made a loop, so everything is full
-    if(this_dep.parent==OCEAN)           //If our parent is the ocean
+    if(this_dep.parent==OCEAN){           //If our parent is the ocean
+      this_dep.water_vol = std::min(this_dep.dep_vol,this_dep.water_vol + extra_water);
       return OCEAN;                      //Then the extra water just goes away
+    }
     else                                 //Otherwise
       this_dep.water_vol += extra_water; //This node, the original node's parent, gets the extra water
     return stop_node;
@@ -541,16 +544,16 @@ static dh_label_t OverflowInto(
 
   auto &pdep = deps.at(this_dep.parent);
   if(this_dep.odep==NO_VALUE){      //Does the depression even have such a neighbour?
-    if(this_dep.parent!=OCEAN && pdep.water_vol==0) //At this point we're full and heading to our parent, so it needs to know that it contains our water
-      pdep.water_vol += this_dep.water_vol;
+    if(this_dep.parent!=OCEAN && pdep.water_vol==0 && (pdep.lchild == this_dep.dep_label || pdep.rchild == this_dep.dep_label)) //At this point we're full and heading to our parent, so it needs to know that it contains our water
+      pdep.water_vol += deps.at(pdep.lchild).dep_vol + deps.at(pdep.rchild).dep_vol;//this_dep.water_vol;
     return jump_table[root] = OverflowInto(this_dep.parent, stop_node, deps, jump_table, extra_water);  //Nope. Pass the water to the parent
   }
 
   //Can overflow depression hold more water?
   auto &odep = deps.at(this_dep.odep);
   if(odep.water_vol<odep.dep_vol){  //Yes. Move the water geographically into that depression's leaf.
-    if(this_dep.parent!=OCEAN && pdep.water_vol==0 && odep.water_vol+extra_water>odep.dep_vol) //It might take a while, but our neighbour will overflow, so our parent needs to know about our water volumes
-      pdep.water_vol += this_dep.water_vol + odep.dep_vol;           //Neighbour's water_vol will equal its dep_vol
+    if(this_dep.parent!=OCEAN && pdep.water_vol==0 && odep.water_vol+extra_water>odep.dep_vol && (pdep.lchild == odep.dep_label || pdep.rchild == odep.dep_label) && (pdep.lchild == this_dep.dep_label || pdep.rchild == this_dep.dep_label)) //It might take a while, but our neighbour will overflow, so our parent needs to know about our water volumes
+      pdep.water_vol += this_dep.dep_vol + odep.dep_vol;           //Neighbour's water_vol will equal its dep_vol
     return jump_table[root] = OverflowInto(this_dep.geolink, stop_node, deps, jump_table, extra_water);
   }
 
@@ -560,8 +563,8 @@ static dh_label_t OverflowInto(
   //If we've got here we have a neighbour, but we couldn't stash water in the
   //neighbour because it was full. So we need to see if our parent knows about
   //us.
-  if(this_dep.parent!=OCEAN && pdep.water_vol==0)
-    pdep.water_vol += this_dep.water_vol + odep.water_vol;
+  if(this_dep.parent!=OCEAN && pdep.water_vol==0 && (pdep.lchild == this_dep.dep_label || pdep.rchild == this_dep.dep_label) && (pdep.lchild == odep.dep_label || pdep.rchild == odep.dep_label))
+    pdep.water_vol += this_dep.dep_vol + odep.dep_vol;
 
   //THIRD PLACE TO STASH WATER: IN THIS DEPRESSION'S PARENT
   return jump_table[root] = OverflowInto(this_dep.parent, stop_node, deps, jump_table, extra_water);
@@ -677,7 +680,8 @@ static SubtreeDepressionInfo FindDepressionsToFill(
   //water will have been transferred into the parent and we don't want to pool
   //the parent's water with our own (it might be at the bottom of a cliff).
 
-  if(this_dep.water_vol<this_dep.dep_vol || this_dep.ocean_parent){
+  if(this_dep.water_vol<this_dep.dep_vol || this_dep.ocean_parent \
+     || (this_dep.water_vol == this_dep.dep_vol && deps.at(this_dep.parent).water_vol == 0)) {
     assert(this_dep.water_vol<=this_dep.dep_vol);
 
     //If both of a depression's children have already spread their water, we do not
@@ -761,7 +765,6 @@ static void FillDepressions(
   //of the cells processed by this priority queue need not match the ordering of
   //the cells processed by the depression hierarchy.
   GridCellZk_high_pq<elev_t> flood_q;
-  GridCellZk_high_pq<elev_t> neighbour_q;
 
   { //Scope to limit pit_cell
     //Cell from which we can begin flooding the meta-depression. Which one we
@@ -790,7 +793,6 @@ static void FillDepressions(
   //dephier.hpp TODO)
   double total_elevation = 0;
   double current_elevation = 0;
-  double previous_elevation = 0;
   double highest_elevation = topo(deps.at(stdi.leaf_label).pit_cell);
   double highest_diff = 0;
   double current_volume = 0;
@@ -827,8 +829,8 @@ static void FillDepressions(
     current_volume += (highest_elevation-current_elevation);//This is the volume added by the current cell.
     //if the current elevation is equal to the highest elevation, this is 0: The current cell has no volume above its elevation to add.
 
-    if(current_elevation != highest_elevation && stdi.my_labels.count(label(c.x,c.y))!=0){
-      cells_affected.emplace_back(topo.xyToI(c.x,c.y));
+     if(current_elevation != highest_elevation && stdi.my_labels.count(label(c.x,c.y))!=0){
+        cells_affected.emplace_back(topo.xyToI(c.x,c.y));
 
       //Fill in cells' water tables as we go
 
@@ -843,8 +845,8 @@ static void FillDepressions(
 
       //Add the current cell's information to the running total
       total_elevation += topo(c.x,c.y);
-    }
 
+}
     current_volume += highest_diff*cells_affected.size();//This is the volume added by previous cells, if we have found a new highest cell.
     //highest_diff is only non-zero if the current cell is a new 'highest cell' for the depression so far. In this case, we need to
     //add the amount of volume above all scanned cells, between the heights of the previous highest cell and this one.
@@ -971,24 +973,11 @@ static void FillDepressions(
         //e.g. an escarpment before the ocean.
 
         if(visited.count(ni)==0){ //&& ((label(nx,ny)!=OCEAN)
-          if(stdi.my_labels.count(label(nx,ny))==0)
-          //CHECK. This was preventing cells that flowed to the ocean from
-            //allowing my depression volume to update.
-            //Is this way ok? Is this even needed?
-            neighbour_q.emplace(nx,ny,topo(nx,ny));
-          else
-            flood_q.emplace(nx,ny,topo(nx,ny));
+          flood_q.emplace(nx,ny,topo(nx,ny));
           visited.emplace(ni);
         }
       }
     }
-
-    if(flood_q.empty() && !neighbour_q.empty()){
-      const auto c = neighbour_q.top();
-      neighbour_q.pop();
-      flood_q.emplace(c.x,c.y,topo(c.x,c.y));
-    }
-    previous_elevation = static_cast<double>(topo(c.x,c.y));
   }
 
 
