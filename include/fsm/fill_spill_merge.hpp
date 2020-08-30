@@ -523,21 +523,21 @@ static dh_label_t OverflowInto(
   //TODO: Could simulate water running down flowpath into depression so that wtd
   //fills up more realistically
 
-  if(root==OCEAN)                        //We've reached the ocean
-    return OCEAN;                        //Time to stop: there's nowhere higher in the depression hierarchy
+  //Determine if we've completed the loop.
 
-  //FIRST PLACE TO STASH WATER: IN THIS DEPRESSION
-
-  //We've gone around in a loop and found the original node's parent. That means
-  //it's time to stop. (This may be the leaf node of another metadepression, the
-  //ocean, or a standard node.)
-  if(root==stop_node){                   //We've made a loop, so everything is full
-    if(this_dep.parent==OCEAN)           //If our parent is the ocean
-      return OCEAN;                      //Then the extra water just goes away
-    else                                 //Otherwise
-      this_dep.water_vol += extra_water; //This node, the original node's parent, gets the extra water
+  if(root==OCEAN){
+    //If we've reached the ocean, then we've made a complete loop and it's time
+    //to stop: there's nowhere higher in the depression hierarchy. Excess water
+    //is disregarded.
+    return OCEAN;
+  } else if(root==stop_node){
+    //Otherwise, if we've reached the stop_node, that means we're at the
+    //original node's parent. We give it our extra water.
+    this_dep.water_vol += extra_water;
     return stop_node;
   }
+
+  //FIRST PLACE TO STASH WATER: IN THIS DEPRESSION
 
   if(this_dep.water_vol<this_dep.dep_vol){                                              //Can this depression hold any water?
     const double capacity = this_dep.dep_vol - this_dep.water_vol;                      //Yes. How much can it hold?
