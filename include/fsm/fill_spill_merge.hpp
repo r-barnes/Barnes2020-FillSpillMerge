@@ -761,6 +761,7 @@ static void FillDepressions(
   //of the cells processed by this priority queue need not match the ordering of
   //the cells processed by the depression hierarchy.
   GridCellZk_high_pq<elev_t> flood_q;
+  GridCellZk_high_pq<elev_t> neighbour_q;
 
   { //Scope to limit pit_cell
     //Cell from which we can begin flooding the meta-depression. Which one we
@@ -788,10 +789,26 @@ static void FillDepressions(
   //for calculating the volume we've seen so far. (See explanation above or in
   //dephier.hpp TODO)
   double total_elevation = 0;
+  double current_elevation = 0;
+  double previous_elevation = 0;
+  double highest_elevation = topo(deps.at(stdi.leaf_label).pit_cell);
+  double highest_diff = 0;
+  double current_volume = 0;
+
 
   while(!flood_q.empty()){
     const auto c = flood_q.top();
     flood_q.pop();
+
+    current_elevation = static_cast<double>(topo(c.x,c.y));
+
+    highest_diff = 0;  //This is the difference between the current highest cell seen, and the previous highest cell.
+    //it is 0 unless this is the new highest cell.
+    if(current_elevation > highest_elevation){
+      highest_diff = current_elevation - highest_elevation;
+      highest_elevation = current_elevation;
+    }
+
 
     //We keep track of the current volume of the depression by noting the total
     //elevation of the cells we've seen as well as the number of cells we've
@@ -807,11 +824,35 @@ static void FillDepressions(
     //Current volume of this subset of the metadepression. Since we might climb
     //over a saddle point, this value can occasionally be negative. It will be
     //positive by the time we need to spread the water around.
-    const double current_volume = cells_affected.size()*static_cast<double>(topo(c.x,c.y)) - total_elevation;
+    current_volume += (highest_elevation-current_elevation);//This is the volume added by the current cell.
+    //if the current elevation is equal to the highest elevation, this is 0: The current cell has no volume above its elevation to add.
 
-    //NOTE: If this is false by a small margin, then it's a floating point issue
-    //and this should be adjusted to be >=-1e-6 and water_vol should be made 0
-    assert(water_vol>=0);
+    if(current_elevation != highest_elevation && stdi.my_labels.count(label(c.x,c.y))!=0){
+      cells_affected.emplace_back(topo.xyToI(c.x,c.y));
+
+      //Fill in cells' water tables as we go
+
+      assert(wtd(c.x,c.y) <= FP_ERROR);
+      if(wtd(c.x,c.y) > 0)
+        wtd(c.x,c.y) = 0;
+      water_vol += wtd(c.x,c.y);
+
+      //We use += because wtd is less than or equal to zero
+      wtd(c.x,c.y)    = 0;
+      //Now we are sure that wtd is 0, since we've just filled it
+
+      //Add the current cell's information to the running total
+      total_elevation += topo(c.x,c.y);
+    }
+
+    current_volume += highest_diff*cells_affected.size();//This is the volume added by previous cells, if we have found a new highest cell.
+    //highest_diff is only non-zero if the current cell is a new 'highest cell' for the depression so far. In this case, we need to
+    //add the amount of volume above all scanned cells, between the heights of the previous highest cell and this one.
+
+
+    assert(water_vol >= - FP_ERROR);
+    if(water_vol < 0)
+      water_vol = 0;
 
     //All the cells within this depression should have water table depths less
     //than or equal to zero because we have moved all of their water down slope
@@ -848,11 +889,11 @@ static void FillDepressions(
         assert(fill_amount>=0);
         wtd(c.x,c.y)   += fill_amount;
         water_vol -= fill_amount;   //Doesn't matter because we don't use water_vol anymore
-        water_level     = topo(c.x,c.y);
+        water_level     = highest_elevation;
       } else if (current_volume==water_vol){
         //The volume of water is exactly equal to the above ground volume so we
         //set the water level equal to this cell's elevation
-        water_level = topo(c.x,c.y);
+        water_level = highest_elevation;
       } else {
         //The water volume is less than this cell's elevation, so we calculate
         //what the water level should be.
@@ -863,9 +904,9 @@ static void FillDepressions(
       }
 
 
-      //Water level must be higher than (or equal to) the previous cell we looked at, but lower than (or equal to) the current cell
+      //Water level must be higher than (or equal to) the previous cell we looked at, but lower than (or equal to) the highest cell
       assert(cells_affected.size()==0 || topo(cells_affected.back())<=water_level+FP_ERROR);
-      assert(topo(c.x,c.y)-water_level>=-1e-3);
+      assert(highest_elevation-water_level >= -FP_ERROR);
 
       for(const auto c: cells_affected){
         assert(wtd(c)>=0);               //This should be true since we have been filling wtds as we go.
@@ -897,22 +938,25 @@ static void FillDepressions(
 
       //Add this cell to those affected so that its volume is available for
       //filling.
-      cells_affected.emplace_back(topo.xyToI(c.x,c.y));
 
-      //Fill in cells' water tables as we go
-      assert(wtd(c.x,c.y)<=0);
-      water_vol += wtd(c.x,c.y);  //We use += because wtd is less than or equal to zero
-      wtd(c.x,c.y)    = 0;             //Now we are sure that wtd is 0, since we've just filled it
+      if(current_elevation == highest_elevation){
+        cells_affected.emplace_back(topo.xyToI(c.x,c.y));
 
-      //Add the current cell's information to the running total
-      total_elevation += topo(c.x,c.y);
+        //Fill in cells' water tables as we go
+        assert(wtd(c.x,c.y)<=0);
+        water_vol += wtd(c.x,c.y);  //We use += because wtd is less than or equal to zero
+        wtd(c.x,c.y)    = 0;             //Now we are sure that wtd is 0, since we've just filled it
 
-      for(int n=1;n<=neighbours;n++){
-        const int nx = c.x + dx[n]; //TODO ModFloor(x+dx[n],topo.width()); //Get neighbour's x-coordinate using an offset and wrapping
-        const int ny = c.y + dy[n];                     //Get neighbour's y-coordinate using an offset
-        if(!topo.inGrid(nx,ny))                         //Is this cell in the grid?
-          continue;                                     //Nope: out of bounds.
-        const int ni = topo.xyToI(nx,ny);               //Get neighbour's flat index
+        //Add the current cell's information to the running total
+        total_elevation += topo(c.x,c.y);
+      }
+
+        for(int n=1;n<=neighbours;n++){
+          const int nx = c.x + dx[n]; //TODO ModFloor(x+dx[n],topo.width()); //Get neighbour's x-coordinate using an offset and wrapping
+          const int ny = c.y + dy[n];                     //Get neighbour's y-coordinate using an offset
+          if(!topo.inGrid(nx,ny))                         //Is this cell in the grid?
+            continue;                                     //Nope: out of bounds.
+          const int ni = topo.xyToI(nx,ny);               //Get neighbour's flat index
 
         //Ocean cells may be found at the edge of a depression. They might get
         //added to this list even if there are other, lower, cells within the
@@ -926,20 +970,33 @@ static void FillDepressions(
         //mistakenly miss adding higher cells which belong to the ocean's depression
         //e.g. an escarpment before the ocean.
 
-        if(visited.count(ni)==0 && (label(nx,ny)!=OCEAN || topo(nx,ny)>ocean_level)){
-          flood_q.emplace(nx,ny,topo(nx,ny));
+        if(visited.count(ni)==0){ //&& ((label(nx,ny)!=OCEAN)
+          if(stdi.my_labels.count(label(nx,ny))==0)
+          //CHECK. This was preventing cells that flowed to the ocean from
+            //allowing my depression volume to update.
+            //Is this way ok? Is this even needed?
+            neighbour_q.emplace(nx,ny,topo(nx,ny));
+          else
+            flood_q.emplace(nx,ny,topo(nx,ny));
           visited.emplace(ni);
         }
       }
     }
+
+    if(flood_q.empty() && !neighbour_q.empty()){
+      const auto c = neighbour_q.top();
+      neighbour_q.pop();
+      flood_q.emplace(c.x,c.y,topo(c.x,c.y));
+    }
+    previous_elevation = static_cast<double>(topo(c.x,c.y));
   }
+
+
 
   //Since we're in this function we are supposed to be guaranteed to be able to
   //fill our depression, since we only enter this function once that is true.
   //Therefore, if we've reached this point, something has gone horribly wrong
   //somewhere. :-(
-
-  // std::cerr<<"E PQ loop exited without filling a depression!"<<std::endl;
 
   throw std::runtime_error("PQ loop exited without filling a depression!");
 }
