@@ -561,7 +561,7 @@ static dh_label_t OverflowInto(
   //Maybe we can fit it into this depression's overflow depression!
 
   auto &pdep = deps.at(this_dep.parent);
-  if(this_dep.odep==NO_VALUE){      //Does the depression even have such a neighbour?
+  if(this_dep.odep==NO_VALUE){                      //Does the depression even have such a neighbour?
     if(this_dep.parent!=OCEAN && pdep.water_vol==0) //At this point we're full and heading to our parent, so it needs to know that it contains our water
       pdep.water_vol += this_dep.water_vol;
     return jump_table[root] = OverflowInto(this_dep.parent, stop_node, deps, jump_table, extra_water);  //Nope. Pass the water to the parent
