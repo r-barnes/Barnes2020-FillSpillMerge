@@ -2,6 +2,12 @@
 #define _df_flow_hpp_
 
 #include <dephier/dephier.hpp>
+#include <richdem/common/Array2D.hpp>
+#include <richdem/common/math.hpp>
+#include <richdem/common/ProgressBar.hpp>
+#include <richdem/common/timer.hpp>
+#include <richdem/depressions/depressions.hpp>
+
 #include <algorithm>
 #include <cassert>
 #include <cmath>
@@ -10,10 +16,6 @@
 #include <iomanip>
 #include <iostream>
 #include <queue>
-#include <richdem/common/Array2D.hpp>
-#include <richdem/common/timer.hpp>
-#include <richdem/common/ProgressBar.hpp>
-#include <richdem/depressions/depressions.hpp>
 #include <stdexcept>
 #include <string>
 #include <unordered_map>
@@ -114,6 +116,8 @@ double DepressionVolume(
   const size_t cells_in_depression,
   const double total_elevation
 );
+
+
 
 ///////////////////////////////////
 //Implementations
@@ -860,8 +864,8 @@ void FillDepressions(
       const auto water_level = DetermineWaterLevel(wtd(c.x,c.y), water_vol, topo(c.x,c.y), cells_affected.size(), total_elevation);
 
       //Water level must be higher than (or equal to) the previous cell we looked at, but lower than (or equal to) the current cell
-      assert(cells_affected.size()==0 || topo(cells_affected.back())<=water_level);
-      assert(topo(c.x,c.y)>=water_level);
+      assert(cells_affected.size()==0 || fp_less_than(topo(cells_affected.back()),water_level));
+      assert(topo(c.x,c.y)>water_level || fp_equal_to(topo(c.x,c.y),water_level));
 
       BackfillDepression(water_level, topo, wtd, cells_affected);
 

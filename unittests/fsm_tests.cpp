@@ -1,6 +1,10 @@
 #include "doctest.h"
 #include <fsm/fill_spill_merge.hpp>
 
+#include <richdem/terrain_generation.hpp>
+
+#include <random>
+
 using namespace richdem;
 using namespace richdem::dephier;
 
@@ -313,5 +317,53 @@ TEST_CASE("FillDepressions"){
     };
 
     CHECK(MaxArrayDiff(wtd,wtd_good)<1e-6);
+  }
+}
+
+
+
+TEST_CASE("Randomized Heavy Flooding vs Priority-Flood"){
+  std::mt19937_64 gen;
+  std::uniform_int_distribution<int>      size_dist(30,500);
+  std::uniform_int_distribution<uint32_t> seed_dist;
+
+  #pragma omp parallel for
+  for(int i=0;i<500;i++){
+    int      this_size;
+    uint32_t this_seed;
+    #pragma omp critical
+    {
+      this_size = size_dist(gen);
+      this_seed = seed_dist(gen);
+    }
+    auto dem = perlin(this_size, this_seed);
+
+    Array2D<dh_label_t> labels  (dem.width(), dem.height(), NO_DEP );
+    Array2D<flowdir_t>  flowdirs(dem.width(), dem.height(), NO_FLOW);
+
+    for(int y=0;y<dem.height();y++)
+    for(int x=0;x<dem.width(); x++){
+      if(dem.isEdgeCell(x,y)){
+        dem(x,y)    = -1;
+        labels(x,y) = OCEAN;
+      }
+    }
+
+    auto deps = GetDepressionHierarchy<double,Topology::D8>(dem, labels, flowdirs);
+
+    //wtd with a *lot* of initial surface water
+    Array2D<double> wtd(dem.width(), dem.height(), 100);
+
+    FillSpillMerge(dem, labels, flowdirs, deps, wtd, -1.0);
+
+    for(auto i=dem.i0(); i<dem.size(); i++){
+      if(!dem.isNoData(i))
+        dem(i) += wtd(i);
+    }
+
+    auto comparison_dem = dem;
+    PriorityFlood_Zhou2016(comparison_dem);
+
+    CHECK(MaxArrayDiff(comparison_dem,dem)<1e-6);
   }
 }
