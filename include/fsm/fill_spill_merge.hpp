@@ -867,13 +867,13 @@ void FillDepressions(
 
     //We haven't found enough volume for the water yet.
 
-    //During the adding of neighbours neighbours might get added that are
-    //lower than we are and belong to a different depression (notably, this
-    //happens at the edge of a flat abuting an ocean). These cells will then
-    //be popped and could be processed inappropriately. To prevent this, we
-    //skip them here.
-    if(dep_labels.count(label(c.x,c.y))==0)
-      continue;
+    //The first cell we process that doesn't belong to the depression should
+    //give us sufficient volume to fill the depression; otherwise, that cell
+    //would have been part of the depression. Therefore, we throw if this case
+    //arises.
+    if(dep_labels.count(label(c.x,c.y))==0){
+      throw std::runtime_error("Could not fill depression using a single outside cell!");
+    }
 
     //Okay, we're allow to add this cell's neighbours since this cell is part
     //of the metadepression.
@@ -885,7 +885,7 @@ void FillDepressions(
     //Fill in cells' water tables as we go
     assert(wtd(c.x,c.y)<=0);
     water_vol += wtd(c.x,c.y);  //We use += because wtd is less than or equal to zero
-    wtd(c.x,c.y) = 0;           //Now we are sure that wtd is 0, since we've just filled it
+    wtd(c.x,c.y) = 0;           //Now we are sure that wtd is 0, since we've just filled it //TODO: Why are we sure?
 
     //Add the current cell's information to the running total
     total_elevation += topo(c.x,c.y);
@@ -904,7 +904,7 @@ void FillDepressions(
       //ocean and try to add it. The ocean would then be called instead of
       //more cells within the depression. Therefore, we do not add ocean
       //cells.
-      if(visited.count(ni)==0 && label(nx,ny)!=OCEAN){
+      if(visited.count(ni)==0){
         flood_q.emplace(nx,ny,topo(nx,ny));
         visited.emplace(ni);
       }
