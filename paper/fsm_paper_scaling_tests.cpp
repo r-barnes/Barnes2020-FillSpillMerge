@@ -33,7 +33,7 @@ rd::Array2D<double> pad(const rd::Array2D<double> &inp, const int pad_width, con
 
 
 int main(){
-  auto dem = richdem::perlin(2000);
+  auto dem = richdem::perlin(2000, 123456);
 
   const double ocean_level = -1;
 
@@ -58,7 +58,7 @@ int main(){
   flowdirs.setAll(rd::NO_FLOW);
 
   auto deps = dh::GetDepressionHierarchy<double,rd::Topology::D8>(dem, labels, flowdirs);
-  dh::FillSpillMerge<double,double>(dem, labels, flowdirs, deps, wtd, ocean_level);
+  dh::FillSpillMerge<double,double>(dem, labels, flowdirs, deps, wtd);
 
   SaveGDAL(dem, "/z/out.tif");
 }

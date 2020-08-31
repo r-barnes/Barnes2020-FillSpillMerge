@@ -235,20 +235,18 @@ TEST_CASE("FillDepressions"){
 
   const std::unordered_set<dh_label_t> dep_labels = {2};
 
-  const double ocean_level = -9;
-
   SUBCASE("No water to add"){
     wtd(4,3) = -0.5;
     const auto wtd_good = wtd;
     const double water_vol = 0;
-    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd, ocean_level);
+    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd);
     CHECK(wtd==wtd_good);
   }
 
   SUBCASE("Standard Case"){
     wtd.setAll(0);
     const double water_vol = 3.0;
-    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd, ocean_level);
+    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd);
 
     const auto W = 1.5;
     const Array2D<double> wtd_good = {
@@ -270,7 +268,7 @@ TEST_CASE("FillDepressions"){
   SUBCASE("Sill Cell Aborbs some water"){
     wtd(4,3) = -1;
     const double water_vol = 5.0;
-    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd, ocean_level);
+    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd);
 
     const auto W = 2.0;
     const Array2D<double> wtd_good = {
@@ -291,7 +289,7 @@ TEST_CASE("FillDepressions"){
 
   SUBCASE("Passes over a saddle"){
     const double water_vol = 19.0;
-    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd, ocean_level);
+    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd);
 
     const Array2D<double> wtd_good = {
         { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
@@ -312,7 +310,7 @@ TEST_CASE("FillDepressions"){
   SUBCASE("Passes over a saddle and sill absorbs some"){
     const double water_vol = 19.5;
     wtd(6,4) = -1;
-    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd, ocean_level);
+    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd);
 
     const Array2D<double> wtd_good = {
         { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
@@ -356,7 +354,7 @@ TEST_CASE("Randomized Heavy Flooding vs Priority-Flood"){
     //wtd with a *lot* of initial surface water
     Array2D<double> wtd(dem.width(), dem.height(), 100);
 
-    FillSpillMerge(dem, labels, flowdirs, deps, wtd, -1.0);
+    FillSpillMerge(dem, labels, flowdirs, deps, wtd);
 
     for(auto i=dem.i0(); i<dem.size(); i++){
       if(!dem.isNoData(i))
@@ -394,7 +392,7 @@ TEST_CASE("Randomized Testing of Repeated FSM"){
         }
 
       auto DH = GetDepressionHierarchy<double,Topology::D8>(dem, label, flowdirs);
-      FillSpillMerge(dem, label, flowdirs, DH, wtd, -1.0);
+      FillSpillMerge(dem, label, flowdirs, DH, wtd);
     };
 
     //Initially distribute the water

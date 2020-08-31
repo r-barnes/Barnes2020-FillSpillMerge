@@ -57,7 +57,7 @@ int main(int argc, char **argv){
   //connecting them
   auto deps = dh::GetDepressionHierarchy<float,rd::Topology::D8>(topo, label, flowdirs);
 
-  dh::FillSpillMerge(topo, label, flowdirs, deps, wtd, (float)ocean_level);
+  dh::FillSpillMerge(topo, label, flowdirs, deps, wtd);
 
   for(unsigned int i=0;i<topo.size();i++)
     if(!topo.isNoData(i))

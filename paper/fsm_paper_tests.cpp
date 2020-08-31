@@ -61,7 +61,7 @@ int main(int argc, char **argv){
 
   rd::Timer timer_fsm;
   timer_fsm.start();
-  dh::FillSpillMerge(topo, label, flowdirs, deps, wtd, ocean_level);
+  dh::FillSpillMerge(topo, label, flowdirs, deps, wtd);
   timer_fsm.stop();
   std::cout<<"t FSM time = "<<timer_fsm.accumulated()<<" s"<<std::endl;
 
