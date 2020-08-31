@@ -407,3 +407,39 @@ TEST_CASE("Randomized Testing of Repeated FSM"){
     CHECK(MaxArrayDiff(first_wtd,wtd)<1e-6);
   }
 }
+
+
+
+TEST_CASE("PQ Issue 2"){
+  const Array2D<double> topo = {
+      {-9, -9, -9, -9,  -9, -9, -9, -9, -9},
+      {-9,  0,  0,  0,   0,  0,  0,  0, -9},
+      {-9,  0,  0,  0,   0,  0,  0,  0, -9},
+      {-9,  0,  0,  0,  -8,  0,  0,  0, -9},
+      {-9,  0,  0,  0,  -8,  0,  0,  0, -9},
+      {-9,  0,  0,  0,   0,  0,  0,  0, -9},
+      {-9,  0,  0,  0,   0,  0,  0,  0, -9},
+      {-9, -9, -9, -9,  -9, -9, -9, -9, -9}
+  };
+
+  const Array2D<double> labels = {
+      {0,  0,  0,  0,   0,  0,  0, 0, 0},
+      {0,  0,  0,  0,   0,  0,  0, 0, 0},
+      {0,  0,  0,  0,   0,  0,  0, 0, 0},
+      {0,  0,  0,  0,   1,  0,  0, 0, 0},
+      {0,  0,  0,  0,   1,  0,  0, 0, 0},
+      {0,  0,  0,  0,   0,  0,  0, 0, 0},
+      {0,  0,  0,  0,   0,  0,  0, 0, 0},
+      {0,  0,  0,  0,   0,  0,  0, 0, 0}
+  };
+
+  const auto pit_cell = topo.xyToI(4,3);
+
+  const std::unordered_set<dh_label_t> dep_labels = {1};
+
+  double water_vol = 2.0;
+
+  Array2D<double> wtd(topo.width(), topo.height(), 0.0);
+
+  FillDepressions(pit_cell, dep_labels, water_vol, topo, labels, wtd);
+}
