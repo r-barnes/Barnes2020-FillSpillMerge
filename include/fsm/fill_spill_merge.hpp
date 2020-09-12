@@ -51,10 +51,10 @@ void FillSpillMerge(
 template<class elev_t, class wtd_t>
 static void MoveWaterIntoPits(
   const Array2D<elev_t>        &topo,
-  Array2D<wtd_t>               &wtd,
   const Array2D<dh_label_t>    &label,
+  const Array2D<flowdir_t>     &flowdirs,
   DepressionHierarchy<elev_t>  &deps,
-  const Array2D<flowdir_t>     &flowdirs
+  Array2D<wtd_t>               &wtd
 );
 
 template<class elev_t>
