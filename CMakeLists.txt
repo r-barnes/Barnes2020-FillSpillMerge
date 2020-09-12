@@ -12,6 +12,7 @@ if(CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_LINK ccache) # Less useful to do it for linking, see edit2
 endif(CCACHE_FOUND)
 
+set(RICHDEM_NO_PROGRESS ON CACHE BOOL "Whether or not to show RichDEM progress bars")
 add_subdirectory(submodules/dephier EXCLUDE_FROM_ALL)
 
 add_library(fsm INTERFACE)

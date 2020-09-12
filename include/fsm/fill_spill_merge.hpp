@@ -4,6 +4,7 @@
 #include <dephier/dephier.hpp>
 #include <richdem/common/Array2D.hpp>
 #include <richdem/common/math.hpp>
+#include <richdem/common/logger.hpp>
 #include <richdem/common/ProgressBar.hpp>
 #include <richdem/common/timer.hpp>
 #include <richdem/depressions/depressions.hpp>
@@ -151,7 +152,8 @@ void FillSpillMerge(
   Timer timer_overall;
   timer_overall.start();
 
-  std::cerr<<"\033[91m##########Performing FillSpillMerge\033[39m"<<std::endl;
+  RDLOG_ALG_NAME<<"FillSpillMerge";
+
 
   //We move standing water downhill to the pit cells of each depression
   MoveWaterIntoPits(topo, label, flowdirs, deps, wtd);
@@ -167,7 +169,7 @@ void FillSpillMerge(
     //have less water. If enough overflow happens, then the water is ultimately
     //routed to the ocean.
     MoveWaterInDepHier(OCEAN, deps, jump_table);
-    std::cerr<<"t FlowInDepressionHierarchy: Overflow time = "<<timer_overflow.stop()<<std::endl;
+    RDLOG_TIME_USE<<"FlowInDepressionHierarchy: Overflow time = "<<timer_overflow.stop();
   }
 
   //Sanity checks
@@ -178,7 +180,7 @@ void FillSpillMerge(
     assert(dep.water_vol==0 || (dep.lchild==NO_VALUE && dep.rchild==NO_VALUE) || (dep.rchild!=NO_VALUE && deps.at(dep.rchild).water_vol<dep.water_vol));
   }
 
-  std::cerr<<"p Finding filled..."<<std::endl;
+  RDLOG_PROGRESS<<"p Finding filled...";
   Timer timer_filled;
   timer_filled.start();
   //We start at the ocean, crawl to the bottom of the depression hierarchy and
@@ -186,7 +188,7 @@ void FillSpillMerge(
   //then modify `wtd` in order to distribute this water across the cells of the
   //depression which will lie below its surface.
   FindDepressionsToFill(OCEAN, deps, topo, label, wtd);
-  std::cerr<<"t FlowInDepressionHierarchy: Fill time = "<<timer_filled.stop()<<" s"<<std::endl;
+  RDLOG_TIME_USE<<"t FlowInDepressionHierarchy: Fill time = "<<timer_filled.stop()<<" s";
 
 
   //TODO
@@ -196,7 +198,7 @@ void FillSpillMerge(
   //   assert(wtd(i)==wtd_master(i));
   // std::cerr<<"m wtd field matches master!"<<std::endl;
 
-  std::cerr<<"t FlowInDepressionHierarchy = "<<timer_overall.stop()<<" s"<<std::endl;
+  RDLOG_TIME_USE<<"t FlowInDepressionHierarchy = "<<timer_overall.stop()<<" s";
 }
 
 
@@ -236,7 +238,7 @@ static void MoveWaterIntoPits(
   //so, we use the steepest-descent flow directions provided by the depression
   //hierarchy code
 
-  std::cerr<<"p Moving surface water downstream..."<<std::endl;
+  RDLOG_PROGRESS<<"Moving surface water downstream...";
 
   //Calculate how many upstream cells flow into each cell
   Array2D<char>  dependencies(topo.width(),topo.height(),0);
@@ -312,7 +314,7 @@ static void MoveWaterIntoPits(
   }
   progress.stop();
 
-  std::cerr<<"t FlowInDepressionHierarchy: Surface water = "<<timer.stop()<<" s"<<std::endl;
+  RDLOG_TIME_USE<<"t FlowInDepressionHierarchy: Surface water = "<<timer.stop()<<" s";
 }
 
 
