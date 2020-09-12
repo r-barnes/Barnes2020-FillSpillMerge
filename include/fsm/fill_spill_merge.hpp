@@ -36,6 +36,9 @@ const double FP_ERROR = 1e-4;
 //Function prototypes
 ///////////////////////////////////
 
+template<class elev_t>
+void ResetDH(DepressionHierarchy<elev_t> &deps);
+
 template<class elev_t, class wtd_t>
 void FillSpillMerge(
   const Array2D<elev_t>       &topo,
@@ -154,6 +157,9 @@ void FillSpillMerge(
 
   RDLOG_ALG_NAME<<"FillSpillMerge";
 
+  //If we're using the DH more than once we need to reset its water variables
+  //between uses
+  ResetDH(deps);
 
   //We move standing water downhill to the pit cells of each depression
   MoveWaterIntoPits(topo, label, flowdirs, deps, wtd);
@@ -1025,6 +1031,18 @@ double DetermineWaterLevel(
     //We have that Volume = (Water Level)*(Cell Count)-(Total Elevation)
     //rearranging this gives us:
     return (water_vol+total_elevation)/cells_to_spread_across;
+  }
+}
+
+
+
+///Reset water volumes in the Depression Hierarchy to zero
+///
+///@param deps Depression Hierarchy to reset
+template<class elev_t>
+void ResetDH(DepressionHierarchy<elev_t> &deps){
+  for(auto &dep: deps){
+    dep.water_vol = 0;
   }
 }
 
