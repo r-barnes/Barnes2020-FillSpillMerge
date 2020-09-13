@@ -215,6 +215,14 @@ void FillSpillMerge(
 ///moved into the DepressionHierarchy data structure for rapid flood-spill-merge
 ///calculations.
 ///
+///One might think that MoveWaterIntoPits could be tested by adding a lot of
+///water to a DEM, running FSM (including MoveWaterIntoPits), taking the
+///resulting WTD, running MoveWaterIntoPits on it, and checking that the results
+///of MoveWaterIntoPits are the same after both runs. But this isn't so: water
+///from the first run comes from a broadly-distributed area. Once it is
+///redistributed within a depression more water might get assigned to one pit or
+///the other depending on the internal flow field.
+///
 ///@param topo     Topography used to generate the DepressionHierarchy
 ///@param label    Labels from GetDepressionHierarchy indicate which depression
 ///                each cell belongs to.
