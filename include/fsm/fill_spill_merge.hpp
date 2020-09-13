@@ -388,17 +388,19 @@ static void MoveWaterInDepHier(
 
   auto &this_dep = deps.at(current_depression);
 
+  //Catch depressions that link to the ocean through this one. These are special
+  //cases because we will never spread water across the union of these
+  //depressions and the current depressions: they only flow into the current
+  //depression. We also process the ocean-linked depressions before the children
+  //of this depression because the ocean-linked depressions can flow into the
+  //children (but the children do not flow into the ocean-linked).
+  for(const auto c: this_dep.ocean_linked)
+    MoveWaterInDepHier(c, deps, jump_table);
+
   //Visit child depressions. When these both overflow, then we spread water
   //across them by spreading water across their common metadepression
   MoveWaterInDepHier(this_dep.lchild, deps, jump_table);
   MoveWaterInDepHier(this_dep.rchild, deps, jump_table);
-
-  //Catch depressions that link to the ocean through this one. These are special
-  //cases because we will never spread water across the union of these
-  //depressions and the current depressions: they only flow into the current
-  //depression
-  for(const auto c: this_dep.ocean_linked)
-    MoveWaterInDepHier(c, deps, jump_table);
 
   //If the current depression is the ocean then at this point we've visited all
   //of its ocean-linked depressions (the ocean has no children). Since we do not
