@@ -4,6 +4,7 @@
 #include <richdem/terrain_generation.hpp>
 
 #include <random>
+#include <sstream>
 
 using namespace richdem;
 using namespace richdem::dephier;
@@ -37,14 +38,27 @@ bool ArrayValuesAllEqual(const Array2D<T> &a, const T val){
 
 
 
-Array2D<double> random_terrain(){
-  static std::mt19937_64 gen;
-  static std::uniform_int_distribution<int>      size_dist(30,500);
+std::mt19937_64 gen;
+
+Array2D<double> random_terrain(std::mt19937_64 &gen){
+  static std::uniform_int_distribution<int>      size_dist(30,300);
   static std::uniform_int_distribution<uint32_t> seed_dist;
 
   return perlin(size_dist(gen), seed_dist(gen));
 }
 
+Array2D<double> random_integer_terrain(std::mt19937_64 &gen){
+  static std::uniform_int_distribution<int>      size_dist(30,300);
+  static std::uniform_int_distribution<uint32_t> seed_dist;
+
+  auto dem = perlin(size_dist(gen), seed_dist(gen));
+  for(auto i=dem.i0();i<dem.size();i++){
+    dem(i) *= 100;
+    dem(i) = static_cast<int>(dem(i));
+  }
+
+  return dem;
+}
 
 
 TEST_CASE("Depression volume"){
@@ -159,6 +173,59 @@ TEST_CASE("MoveWaterIntoPits 1"){
 
 
 
+TEST_CASE("MoveWaterIntoPits Repeatedly"){
+  #pragma omp parallel for
+  for(int i=0;i<2000;i++){
+    std::stringstream oss;
+
+    Array2D<double> dem;
+
+    #pragma omp critical
+    {
+      dem = random_integer_terrain(gen);
+      oss<<gen;
+      std::cerr<<"MoveWaterIntoPits Repeatedly #"<<i<<std::endl;
+    }
+
+    Array2D<dh_label_t> labels  (dem.width(), dem.height(), NO_DEP );
+    Array2D<flowdir_t>  flowdirs(dem.width(), dem.height(), NO_FLOW);
+
+    for(int y=0;y<dem.height();y++)
+    for(int x=0;x<dem.width(); x++){
+      if(dem.isEdgeCell(x,y)){
+        dem(x,y)    = -1;
+        labels(x,y) = OCEAN;
+      }
+    }
+    const auto labels_orig = labels;
+
+    auto deps1 = GetDepressionHierarchy<double,Topology::D8>(dem, labels, flowdirs);
+
+    Array2D<double> wtd(dem.width(), dem.height(), 1);
+
+    MoveWaterIntoPits<double,double>(dem, labels, flowdirs, deps1, wtd);
+
+    labels = labels_orig;
+    auto deps2 = GetDepressionHierarchy<double,Topology::D8>(dem, labels, flowdirs);
+
+    wtd.setAll(0);
+
+    for(const auto &dep: deps1){
+      if(dep.water_vol>0 && dep.pit_cell!=NO_VALUE){
+        wtd(dep.pit_cell) = dep.water_vol;
+      }
+    }
+
+    MoveWaterIntoPits<double,double>(dem, labels, flowdirs, deps2, wtd);
+
+    for(size_t i=1;i<deps1.size();i++){
+      CHECK(deps1.at(i).water_vol==deps2.at(i).water_vol);
+    }
+  }
+}
+
+
+
 TEST_CASE("Backfill Depression"){
   const Array2D<double> topo = {
       {-9, -9, -9, -9, -9, -9, -9, -9, -9, -9},
@@ -200,6 +267,8 @@ TEST_CASE("Backfill Depression"){
   CHECK(ArrayValuesEqual(wtd,wtd_good));
 }
 
+
+
 TEST_CASE("FillDepressions"){
   const Array2D<double> topo = {
       {-9, -9, -9, -9, -9, -9, -9, -9, -9, -9},
@@ -230,6 +299,7 @@ TEST_CASE("FillDepressions"){
   Array2D<double> wtd(topo.width(), topo.height(), 0.0);
 
   const auto pit_cell = topo.xyToI(4,2);
+  const auto out_cell = topo.xyToI(4,3);
 
   REQUIRE(topo(pit_cell)==1);
 
@@ -239,14 +309,14 @@ TEST_CASE("FillDepressions"){
     wtd(4,3) = -0.5;
     const auto wtd_good = wtd;
     const double water_vol = 0;
-    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd);
+    FillDepressions(pit_cell, out_cell, dep_labels, water_vol, topo, label, wtd);
     CHECK(wtd==wtd_good);
   }
 
   SUBCASE("Standard Case"){
     wtd.setAll(0);
     const double water_vol = 3.0;
-    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd);
+    FillDepressions(pit_cell, out_cell, dep_labels, water_vol, topo, label, wtd);
 
     const auto W = 1.5;
     const Array2D<double> wtd_good = {
@@ -268,7 +338,7 @@ TEST_CASE("FillDepressions"){
   SUBCASE("Sill Cell Aborbs some water"){
     wtd(4,3) = -1;
     const double water_vol = 5.0;
-    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd);
+    FillDepressions(pit_cell, out_cell, dep_labels, water_vol, topo, label, wtd);
 
     const auto W = 2.0;
     const Array2D<double> wtd_good = {
@@ -289,7 +359,8 @@ TEST_CASE("FillDepressions"){
 
   SUBCASE("Passes over a saddle"){
     const double water_vol = 19.0;
-    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd);
+    const auto out_cell = topo.xyToI(6,4);
+    FillDepressions(pit_cell, out_cell, dep_labels, water_vol, topo, label, wtd);
 
     const Array2D<double> wtd_good = {
         { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
@@ -309,8 +380,9 @@ TEST_CASE("FillDepressions"){
 
   SUBCASE("Passes over a saddle and sill absorbs some"){
     const double water_vol = 19.5;
+    const auto out_cell = topo.xyToI(6,4);
     wtd(6,4) = -1;
-    FillDepressions(pit_cell, dep_labels, water_vol, topo, label, wtd);
+    FillDepressions(pit_cell, out_cell, dep_labels, water_vol, topo, label, wtd);
 
     const Array2D<double> wtd_good = {
         { 0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
@@ -333,10 +405,17 @@ TEST_CASE("FillDepressions"){
 
 TEST_CASE("Randomized Heavy Flooding vs Priority-Flood"){
   #pragma omp parallel for
-  for(int i=0;i<500;i++){
+  for(int i=0;i<2000;i++){
+    std::stringstream oss;
+
     Array2D<double> dem;
+
     #pragma omp critical
-    dem = random_terrain();
+    {
+      dem = random_terrain(gen);
+      oss<<gen;
+      std::cerr<<"Randomized Heavy Flooding vs Priority-Flood #"<<i<<std::endl;
+    }
 
     Array2D<dh_label_t> labels  (dem.width(), dem.height(), NO_DEP );
     Array2D<flowdir_t>  flowdirs(dem.width(), dem.height(), NO_FLOW);
@@ -354,7 +433,12 @@ TEST_CASE("Randomized Heavy Flooding vs Priority-Flood"){
     //wtd with a *lot* of initial surface water
     Array2D<double> wtd(dem.width(), dem.height(), 100);
 
-    FillSpillMerge(dem, labels, flowdirs, deps, wtd);
+    try {
+      FillSpillMerge(dem, labels, flowdirs, deps, wtd);
+    } catch (const std::exception &e) {
+      std::cerr<<"FillSpillMerge failed because of \""<<e.what()<<"\" with width = "<<dem.width()<<" height = "<<dem.height()<<" state = "<<oss.str()<<std::endl;
+      throw e;
+    }
 
     for(auto i=dem.i0(); i<dem.size(); i++){
       if(!dem.isNoData(i))
@@ -364,7 +448,7 @@ TEST_CASE("Randomized Heavy Flooding vs Priority-Flood"){
     auto comparison_dem = dem;
     PriorityFlood_Zhou2016(comparison_dem);
 
-    CHECK(MaxArrayDiff(comparison_dem,dem)<1e-6);
+    CHECK_MESSAGE(MaxArrayDiff(comparison_dem,dem)<1e-6, "Randomized Heavy Flooding vs Priority-Flood failed with width = "+std::to_string(dem.width())+" height = "+std::to_string(dem.height())+" state = " + oss.str());
   }
 }
 
@@ -372,10 +456,16 @@ TEST_CASE("Randomized Heavy Flooding vs Priority-Flood"){
 
 TEST_CASE("Randomized Testing of Repeated FSM"){
   #pragma omp parallel for
-  for(int i=0;i<500;i++){
+  for(int i=0;i<2000;i++){
+    std::stringstream oss;
+
     Array2D<double> dem;
     #pragma omp critical
-    dem = random_terrain();
+    {
+      dem = random_integer_terrain(gen);
+      oss<<gen;
+      std::cerr<<"Randomized Testing of Repeated FSM #"<<i<<std::endl;
+    }
 
     Array2D<dh_label_t> label   (dem.width(), dem.height(), NO_DEP);
     Array2D<flowdir_t>  flowdirs(dem.width(), dem.height(), NO_FLOW);
@@ -392,7 +482,12 @@ TEST_CASE("Randomized Testing of Repeated FSM"){
         }
 
       auto DH = GetDepressionHierarchy<double,Topology::D8>(dem, label, flowdirs);
-      FillSpillMerge(dem, label, flowdirs, DH, wtd);
+      try {
+        FillSpillMerge(dem, label, flowdirs, DH, wtd);
+      } catch (const std::exception &e) {
+        std::cerr<<"FillSpillMerge failed because of \""<<e.what()<<"\" with width = "<<dem.width()<<" height = "<<dem.height()<<" state = "<<oss.str()<<std::endl;
+        throw e;
+      }
     };
 
     //Initially distribute the water
@@ -404,8 +499,38 @@ TEST_CASE("Randomized Testing of Repeated FSM"){
     //Distribute it a second time
     do_fsm();
 
-    CHECK(MaxArrayDiff(first_wtd,wtd)<1e-6);
+    CHECK_MESSAGE(MaxArrayDiff(first_wtd,wtd)<1e-6, "Randomized Testing of Repeated FSM failed with width = "+std::to_string(dem.width())+" height = "+std::to_string(dem.height())+" state = " + oss.str());
   }
+}
+
+
+
+TEST_CASE("PQ Issue"){
+  const Array2D<double> topo = {
+      {-9, -9, -9, -9, -9, -9, -9, 9, -9},
+      {-9,  5,  5,  5,  5,  5,  5, 5, -9},
+      {-9,  5,  1,  1,  5,  1,  1, 5, -9},
+      {-9,  5,  1,  1,  5,  1,  1, 5, -9},
+      {-9,  2,  1,  1,  3,  1,  1, 5, -9},
+      {-9,  5,  1,  1,  5,  1,  1, 5, -9},
+      {-9,  5,  5,  5,  5,  5,  5, 5, -9},
+      {-9, -9, -9, -9, -9, -9, -9, 9, -9}
+  };
+
+  Array2D<dh_label_t> labels  (topo.width(), topo.height(), NO_DEP );
+  Array2D<flowdir_t>  flowdirs(topo.width(), topo.height(), NO_FLOW);
+
+  labels.setEdges(OCEAN);
+
+  auto deps = GetDepressionHierarchy<double, Topology::D8>(topo, labels, flowdirs);
+
+  flowdirs.printAll("Flowdirs", 1, 0);
+
+  Array2D<double> wtd(topo.width(), topo.height(), 0);
+
+  wtd(5,5) = 17;
+
+  FillSpillMerge(topo, labels, flowdirs, deps, wtd);
 }
 
 
@@ -430,6 +555,7 @@ TEST_CASE("PQ Issue 2"){
   };
 
   const auto pit_cell = topo.xyToI(2,2);
+  const auto out_cell = topo.xyToI(3,3);
 
   const std::unordered_set<dh_label_t> dep_labels = {1};
 
@@ -437,5 +563,5 @@ TEST_CASE("PQ Issue 2"){
 
   Array2D<double> wtd(topo.width(), topo.height(), 0.0);
 
-  FillDepressions(pit_cell, dep_labels, water_vol, topo, labels, wtd);
+  FillDepressions(pit_cell, out_cell, dep_labels, water_vol, topo, labels, wtd);
 }
