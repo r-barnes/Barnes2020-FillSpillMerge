@@ -889,11 +889,6 @@ void FillDepressions(
 
       //We've spread the water, so we're done
       return;
-    } else if(label(c.x,c.y)==OCEAN){
-      //There was too much water to fit in the depression, but if the edge of
-      //the depression was an OCEAN cell, then all of the excess goes away.
-      BackfillDepression(topo(c.x,c.y), topo, wtd, cells_affected);
-      return;
     }
 
     //We haven't found enough volume for the water yet.
