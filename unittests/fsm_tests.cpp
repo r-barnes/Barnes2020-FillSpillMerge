@@ -581,3 +581,60 @@ TEST_CASE("PQ Issue 2"){
 
   FillDepressions(pit_cell, out_cell, dep_labels, water_vol, topo, labels, wtd);
 }
+
+
+
+void RandomizedIncrementalVsBigDump(const int count, const int min_size, const int max_size){
+  #pragma omp parallel for
+  for(int i=0;i<count;i++){
+    std::stringstream oss;
+
+    Array2D<double> dem;
+    #pragma omp critical
+    {
+      dem = random_integer_terrain(gen, min_size, max_size);
+      oss<<gen;
+      std::cerr<<"Randomized Incremental vs Big Dump #"<<i<<std::endl;
+    }
+
+    Array2D<dh_label_t> label   (dem.width(), dem.height(), NO_DEP);
+    Array2D<flowdir_t>  flowdirs(dem.width(), dem.height(), NO_FLOW);
+    Array2D<double>     wtd     (dem.width(), dem.height(), 0);
+
+    //Make sure the edges are identifiable as an ocean
+    label.setAll(NO_DEP);
+    for(int y=0;y<dem.height();y++)
+    for(int x=0;x<dem.width();x++){
+      if(dem.isEdgeCell(x,y)){
+        dem(x,y) = -1;
+        label(x,y) = OCEAN;
+      }
+    }
+
+    auto DH = GetDepressionHierarchy<double,Topology::D8>(dem, label, flowdirs);
+
+    //Initially distribute the water
+    wtd.setAll(1);
+    FillSpillMerge(dem, label, flowdirs, DH, wtd);
+
+    const auto big_dump_wtd = wtd;
+
+    wtd.setAll(0);
+    for(int i=0;i<10;i++){
+      for(auto i=wtd.i0();i<wtd.size();i++){
+        wtd(i) += 0.1;
+      }
+      FillSpillMerge(dem, label, flowdirs, DH, wtd);
+    }
+
+    big_dump_wtd.printAll("Big Dump");
+    wtd.printAll("Incremental");
+
+    REQUIRE_MESSAGE(MaxArrayDiff(big_dump_wtd,wtd)<1e-6, "Randomized Testing of Repeated FSM failed with width = "+std::to_string(dem.width())+" height = "+std::to_string(dem.height())+" state = " + oss.str());
+  }
+}
+
+TEST_CASE("Randomized Testing of Incremental FSM vs Big Dump"){
+  RandomizedIncrementalVsBigDump(6000,  10,  30);
+  RandomizedIncrementalVsBigDump( 500, 100, 300);
+}
