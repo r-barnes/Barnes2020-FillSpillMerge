@@ -40,16 +40,18 @@ bool ArrayValuesAllEqual(const Array2D<T> &a, const T val){
 
 std::mt19937_64 gen;
 
-Array2D<double> random_terrain(std::mt19937_64 &gen){
-  static std::uniform_int_distribution<int>      size_dist(30,300);
+Array2D<double> random_terrain(std::mt19937_64 &gen, const int min_size, const int max_size){
   static std::uniform_int_distribution<uint32_t> seed_dist;
+
+  std::uniform_int_distribution<int> size_dist(min_size, max_size);
 
   return perlin(size_dist(gen), seed_dist(gen));
 }
 
-Array2D<double> random_integer_terrain(std::mt19937_64 &gen){
-  static std::uniform_int_distribution<int>      size_dist(30,300);
+Array2D<double> random_integer_terrain(std::mt19937_64 &gen, const int min_size, const int max_size){
   static std::uniform_int_distribution<uint32_t> seed_dist;
+
+  std::uniform_int_distribution<int> size_dist(min_size, max_size);
 
   auto dem = perlin(size_dist(gen), seed_dist(gen));
   for(auto i=dem.i0();i<dem.size();i++){
@@ -172,17 +174,16 @@ TEST_CASE("MoveWaterIntoPits 1"){
 //TODO: Add second test case with more tests and clearer outlets
 
 
-
-TEST_CASE("MoveWaterIntoPits Repeatedly"){
+void MoveWaterIntoPitsRepeatedly(const int count, const int min_size, const int max_size){
   #pragma omp parallel for
-  for(int i=0;i<2000;i++){
+  for(int i=0;i<count;i++){
     std::stringstream oss;
 
     Array2D<double> dem;
 
     #pragma omp critical
     {
-      dem = random_integer_terrain(gen);
+      dem = random_integer_terrain(gen, min_size, max_size);
       oss<<gen;
       std::cerr<<"MoveWaterIntoPits Repeatedly #"<<i<<std::endl;
     }
@@ -222,6 +223,11 @@ TEST_CASE("MoveWaterIntoPits Repeatedly"){
       CHECK(deps1.at(i).water_vol==deps2.at(i).water_vol);
     }
   }
+}
+
+TEST_CASE("MoveWaterIntoPits Repeatedly"){
+  MoveWaterIntoPitsRepeatedly(6000,  10,  30);
+  MoveWaterIntoPitsRepeatedly( 500, 100, 300);
 }
 
 
@@ -403,16 +409,16 @@ TEST_CASE("FillDepressions"){
 
 
 
-TEST_CASE("Randomized Heavy Flooding vs Priority-Flood"){
+void RandomizedHeavyFloodingVsPriorityFlood(const int count, const int min_size, const int max_size){
   #pragma omp parallel for
-  for(int i=0;i<2000;i++){
+  for(int i=0;i<count;i++){
     std::stringstream oss;
 
     Array2D<double> dem;
 
     #pragma omp critical
     {
-      dem = random_terrain(gen);
+      dem = random_terrain(gen, min_size, max_size);
       oss<<gen;
       std::cerr<<"Randomized Heavy Flooding vs Priority-Flood #"<<i<<std::endl;
     }
@@ -452,17 +458,22 @@ TEST_CASE("Randomized Heavy Flooding vs Priority-Flood"){
   }
 }
 
+TEST_CASE("Randomized Heavy Flooding vs Priority-Flood"){
+  RandomizedHeavyFloodingVsPriorityFlood(6000,  10,  30);
+  RandomizedHeavyFloodingVsPriorityFlood( 500, 100, 300);
+}
 
 
-TEST_CASE("Randomized Testing of Repeated FSM"){
+
+void RandomizedTestingOfRepeatedFSM(const int count, const int min_size, const int max_size){
   #pragma omp parallel for
-  for(int i=0;i<2000;i++){
+  for(int i=0;i<count;i++){
     std::stringstream oss;
 
     Array2D<double> dem;
     #pragma omp critical
     {
-      dem = random_integer_terrain(gen);
+      dem = random_integer_terrain(gen, min_size, max_size);
       oss<<gen;
       std::cerr<<"Randomized Testing of Repeated FSM #"<<i<<std::endl;
     }
@@ -501,6 +512,11 @@ TEST_CASE("Randomized Testing of Repeated FSM"){
 
     CHECK_MESSAGE(MaxArrayDiff(first_wtd,wtd)<1e-6, "Randomized Testing of Repeated FSM failed with width = "+std::to_string(dem.width())+" height = "+std::to_string(dem.height())+" state = " + oss.str());
   }
+}
+
+TEST_CASE("Randomized Testing of Repeated FSM"){
+  RandomizedTestingOfRepeatedFSM(6000,  10,  30);
+  RandomizedTestingOfRepeatedFSM( 500, 100, 300);
 }
 
 
