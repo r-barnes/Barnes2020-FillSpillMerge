@@ -746,14 +746,14 @@ static SubtreeDepressionInfo FindDepressionsToFill(
   //depression and moved the excess to the parent.
   assert(this_dep.water_vol<=this_dep.dep_vol);
 
-  //Since depressions store their marginal water volumes, if a parent depression
-  //has 0 marginal water volume, then both of its children have sufficient
-  //depression volume to store all of their water. However, if our parent is an
-  //ocean-link then we are guaranteed to be able to fill now because excess
-  //water will have been transferred into the parent and we don't want to pool
-  //the parent's water with our own (it might be at the bottom of a cliff).
-
-  if(this_dep.water_vol<this_dep.dep_vol || this_dep.ocean_parent){
+  //If the depression holds less water than its volume, we can fill it now.
+  //Alternatively, if its parent is ocean-linked then we need to fill the
+  //depression now because the excess will have already overflowed through the
+  //oceanlink and we won't get another chance (oceanlinked depressions may be at
+  //the bottom of a cliff with respect to the focal depression). Alternatively,
+  //if the depression's parent contains no water then we know the depression is
+  //large enough to contain its water.
+  if(this_dep.water_vol<this_dep.dep_vol || this_dep.ocean_parent || (this_dep.water_vol==this_dep.dep_vol && deps.at(this_dep.parent).water_vol==0)){
     assert(this_dep.water_vol<=this_dep.dep_vol);
 
     //If both of a depression's children have already spread their water, we do
