@@ -306,14 +306,12 @@ static void MoveWaterIntoPits(
       //depression. This can be used to find out how much total run-off made it
       //into the ocean.
       if(wtd(c)>0){
-        std::cerr<<"Moving "<<wtd(c)<<" water from "<<c<<" into dep "<<label(c)<<std::endl;
         deps[label(c)].water_vol += wtd(c);
         wtd(c) = 0; //Clean up as we go
       }
     } else {                               //not a pit cell
       //If we have water, pass it downstream.
       if(wtd(c)>0){ //Groundwater can go negative, so it's important to make sure that we are only passing positive water around
-        std::cerr<<"Moving "<<wtd(c)<<" water from "<<c<<" into "<<n<<std::endl;
         wtd(n) += wtd(c);  //Add water to downstream neighbour. This might result in filling up the groundwater table, which could have been negative
         wtd(c)  = 0;       //Clean up as we go
       }
@@ -630,13 +628,15 @@ static dh_label_t OverflowInto(
   //depression. That means we pass it to this depression's parent. Since we're
   //going to add water to that parent, we need it to know about all the water
   //beneath it, so we add our water and our overflow neighbour's water before
-  //climbing up to the parent.
+  //climbing up to the parent. Since it's possible our overflow neighbour has
+  //already done this, we only add the water we and our neighbour own if the
+  //parent currently has no water in it.
   auto &pdep = deps.at(this_dep.parent);
-  pdep.water_vol += this_dep.water_vol;
-  std::cerr<<"\tNeighbour depression was full. Add "<<this_dep.water_vol<<" water to parent "<<this_dep.parent<<" of "<<root<<std::endl;
-  if(this_dep.odep!=NO_VALUE){
-    std::cerr<<"\t\tAnd also add "<<deps.at(this_dep.odep).water_vol<<std::endl;
-    pdep.water_vol += deps.at(this_dep.odep).water_vol;
+  if(pdep.water_vol==0){
+    pdep.water_vol += this_dep.water_vol;
+    if(this_dep.odep!=NO_VALUE){
+      pdep.water_vol += deps.at(this_dep.odep).water_vol;
+    }
   }
   std::cerr<<"\tPass extra water "<<extra_water<<" up to parent."<<std::endl;
 

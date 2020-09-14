@@ -627,8 +627,6 @@ void RandomizedIncrementalVsBigDump(const int count, const int min_size, const i
       FillSpillMerge(dem, label, flowdirs, DH, wtd);
     }
 
-    big_dump_wtd.printAll("Big Dump");
-    wtd.printAll("Incremental");
 
     REQUIRE_MESSAGE(MaxArrayDiff(big_dump_wtd,wtd)<1e-6, "Randomized Testing of Repeated FSM failed with width = "+std::to_string(dem.width())+" height = "+std::to_string(dem.height())+" state = " + oss.str());
   }
