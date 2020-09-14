@@ -841,11 +841,10 @@ void FillDepressions(
     //elevation of the cells we've seen as well as the number of cells we've
     //seen.
 
-    //TODO: Note that the current cell's above ground volume and wtd do not
-    //contribute at all. This a choice that Kerry and Richard discussed. It is
-    //as though there is a virtual water line coincident with the edge of the
-    //current cell. No water infiltrates into this cell or is stored above it -
-    //only cells previously visited are considered when doing volume
+    //Note that the current cell's above ground volume and wtd do not contribute
+    //at all. It is as though there is a virtual water line coincident with the
+    //edge of the current cell. No water infiltrates into this cell or is stored
+    //above it - only cells previously visited are considered when doing volume
     //calculations.
 
     //Current volume of this subset of the metadepression. Since we might climb
@@ -879,7 +878,10 @@ void FillDepressions(
       //this cell is sufficient to store all of the water. We'll stop adding
       //cells and fill things now.
 
-      const auto water_level = DetermineWaterLevel(wtd(c.x,c.y), water_vol, topo(c.x,c.y), cells_affected.size(), total_elevation);
+      auto water_level = DetermineWaterLevel(wtd(c.x,c.y), water_vol, topo(c.x,c.y), cells_affected.size(), total_elevation);
+      if(fp_eq(water_level, topo(out_cell))){
+        water_level = topo(out_cell);
+      }
 
       //Water level must be higher than (or equal to) the previous cell we looked at, but lower than (or equal to) the current cell
       assert(cells_affected.size()==0 || fp_le(topo(cells_affected.back()),water_level));
@@ -893,29 +895,23 @@ void FillDepressions(
 
     //We haven't found enough volume for the water yet.
 
-    //The outlet cell is the only one added to the PQ that might not belong to
-    //the depression. Since it's the outlet we must have enough volume to fill
-    //the depression or something has gone wrong. Here we check for this
-    //possibility.
-    if(dep_labels.count(label(c.x,c.y))==0){
-      throw std::runtime_error("The outlet cell didn't provide sufficient volume to fill the depression!");
+    //The outlet cell never impacts the amount of water the depression can hold
+    //and its water table is adjusted in the if-clause above.
+    if(topo.xyToI(c.x,c.y)!=out_cell){
+      //Add this cell to those affected so that its volume is available for
+      //filling.
+      cells_affected.emplace_back(topo.xyToI(c.x,c.y));
+
+      //Fill in cells' water tables as we go
+      assert(wtd(c.x,c.y)<=0);
+      water_vol += wtd(c.x,c.y);  //We use += because wtd is less than or equal to zero
+      wtd(c.x,c.y) = 0;           //Now we are sure that wtd is 0, since we've just filled it //TODO: Why are we sure?
+
+      //Add the current cell's information to the running total
+      total_elevation += topo(c.x,c.y);
     }
 
-    //Okay, we're allow to add this cell's neighbours since this cell is part
-    //of the metadepression.
-
-    //Add this cell to those affected so that its volume is available for
-    //filling.
-    cells_affected.emplace_back(topo.xyToI(c.x,c.y));
-
-    //Fill in cells' water tables as we go
-    assert(wtd(c.x,c.y)<=0);
-    water_vol += wtd(c.x,c.y);  //We use += because wtd is less than or equal to zero
-    wtd(c.x,c.y) = 0;           //Now we are sure that wtd is 0, since we've just filled it //TODO: Why are we sure?
-
-    //Add the current cell's information to the running total
-    total_elevation += topo(c.x,c.y);
-
+    //Add focal cell's neighbours to expand the search for more volume.
     for(int n=1;n<=neighbours;n++){
       const int nx = c.x + dx[n];       // Get neighbour's x-coordinate using an offset
       const int ny = c.y + dy[n];       // Get neighbour's y-coordinate using an offset
@@ -923,12 +919,9 @@ void FillDepressions(
         continue;                       // Nope: out of bounds.
       const int ni = topo.xyToI(nx,ny); // Get neighbour's flat index
 
-      //Dont add cells which are not part of the depression. If the outlet cell
-      //is part of the depression it will get added anyway and then the
-      //depression must contain sufficient volume to hold its water; otherwise,
-      //the outlet cell belongs to a geographically neighbouring depression and
-      //we add it below.
-      if(dep_labels.count(label(ni))==0)
+      //Don't add cells which are not part of the depression unless the cell in
+      //question is the outlet cell.
+      if(dep_labels.count(label(ni))==0 && ni!=out_cell)
         continue;
 
       //Ocean cells may be found at the edge of a depression. They might get
@@ -944,15 +937,16 @@ void FillDepressions(
       }
     }
 
-    //The queue is empty, so we add the outlet cell. If this cell has already
-    //been added it was part of this depression and we'll raise an exception
-    //below. Otherwise, the outlet is part of a geographically neighbouring
-    //depression and adding it should give us sufficient volume to fill the
-    //depression (if not, we'll raise an exception).
-    if(flood_q.empty() && visited.count(out_cell)==0){
+    //The queue is empty, so we add the outlet cell. We may have already visited
+    //the cell while moving from one side of a depression to the other, but
+    //since it doesn't affect depression volume it's safe to visit it twice.
+    //NOTE: if our logic is wrong somewhere adding the cell like this could
+    //result in an infinite loop.
+    if(flood_q.empty()){
       int x,y;
       topo.iToxy(out_cell, x, y);
       flood_q.emplace(x, y, topo(out_cell));
+      visited.emplace(out_cell);
     }
   }
 
@@ -1068,7 +1062,11 @@ double DetermineWaterLevel(
 
     //We have that Volume = (Water Level)*(Cell Count)-(Total Elevation)
     //rearranging this gives us:
-    return (water_vol+total_elevation)/cells_to_spread_across;
+    const auto nominal_level = (water_vol+total_elevation)/cells_to_spread_across;
+    if(fp_eq(nominal_level, sill_elevation))
+      return sill_elevation;
+    else
+      return nominal_level;
   }
 }
 
