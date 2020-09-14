@@ -162,8 +162,12 @@ void FillSpillMerge(
   //between uses.
   ResetDH(deps);
 
+  std::cerr<<"Reset\n"<<deps<<std::endl;
+
   //We move standing water downhill to the pit cells of each depression
   MoveWaterIntoPits(topo, label, flowdirs, deps, wtd);
+
+  std::cerr<<"MoveWaterIntoPits\n"<<deps<<std::endl;
 
   {
     //Scope to limit `timer_overflow` and `jump_table`. Also ensures
@@ -178,6 +182,8 @@ void FillSpillMerge(
     MoveWaterInDepHier(OCEAN, deps, jump_table);
     RDLOG_TIME_USE<<"FlowInDepressionHierarchy: Overflow time = "<<timer_overflow.stop();
   }
+
+  std::cerr<<"MoveWater\n"<<deps<<std::endl;
 
   //Sanity checks
   for(int d=1;d<(int)deps.size();d++){
@@ -300,12 +306,14 @@ static void MoveWaterIntoPits(
       //depression. This can be used to find out how much total run-off made it
       //into the ocean.
       if(wtd(c)>0){
+        std::cerr<<"Moving "<<wtd(c)<<" water from "<<c<<" into dep "<<label(c)<<std::endl;
         deps[label(c)].water_vol += wtd(c);
         wtd(c) = 0; //Clean up as we go
       }
     } else {                               //not a pit cell
       //If we have water, pass it downstream.
       if(wtd(c)>0){ //Groundwater can go negative, so it's important to make sure that we are only passing positive water around
+        std::cerr<<"Moving "<<wtd(c)<<" water from "<<c<<" into "<<n<<std::endl;
         wtd(n) += wtd(c);  //Add water to downstream neighbour. This might result in filling up the groundwater table, which could have been negative
         wtd(c)  = 0;       //Clean up as we go
       }
@@ -412,7 +420,9 @@ static void MoveWaterInDepHier(
       && deps.at(rchild).water_vol==deps.at(rchild).dep_vol
       && this_dep.water_vol==0 //If water_vol>0 then children have already overflowed into parent
     ){
+      std::cerr<<current_depression<<" gets "<<deps.at(lchild).water_vol<<" from "<<lchild<<" gets "<<deps.at(rchild).water_vol<<" from "<<rchild;
       this_dep.water_vol += deps.at(lchild).water_vol + deps.at(rchild).water_vol;
+      std::cerr<<" for a total of "<<this_dep.water_vol<<std::endl;
     }
   }
 
@@ -441,11 +451,14 @@ static void MoveWaterInDepHier(
     //depression volume (the excess water is thrown into the ocean, which is
     //unaffected).
     this_dep.water_vol = std::min(this_dep.water_vol,this_dep.dep_vol);
+    std::cerr<<"Reached the ocean from "<<current_depression<<std::endl;
   } else if(this_dep.water_vol>this_dep.dep_vol) {
     //The neighbouring depression is not the ocean and this depression is
     //overflowing (therefore, all of its children are full)
     assert(this_dep.lchild==NO_VALUE || deps.at(this_dep.lchild).water_vol==deps.at(this_dep.lchild).dep_vol);
     assert(this_dep.rchild==NO_VALUE || deps.at(this_dep.rchild).water_vol==deps.at(this_dep.rchild).dep_vol);
+
+    std::cerr<<current_depression<<" is too full has "<<this_dep.water_vol<<" but can only hold "<<this_dep.dep_vol<<"\n";
 
     //OverflowInto will start at this depression and then, since there is
     //insufficient room, move to its neighbour via geolinks. If everything fills
@@ -538,9 +551,12 @@ static dh_label_t OverflowInto(
     this_dep.water_vol = this_dep.dep_vol;
   }
 
+  std::cerr<<deps<<std::endl;
+
   //Jump table ensures that the two traversals collectively take no more than
   //O(N) time by ensuring that we never revisit a filled depression twice.
   if(jump_table.count(root)!=0){
+    std::cerr<<"\tJumping from "<<root<<" to "<<jump_table.at(root)<<std::endl;
     return jump_table[root] = OverflowInto(jump_table.at(root), stop_node, deps, jump_table, extra_water);
   }
 
@@ -553,11 +569,13 @@ static dh_label_t OverflowInto(
     //If we've reached the ocean, then we've made a complete loop and it's time
     //to stop: there's nowhere higher in the depression hierarchy. Excess water
     //is disregarded.
+    std::cerr<<"\tReached the ocean. Depositing "<<extra_water<<" extra water"<<std::endl;
     deps.at(OCEAN).water_vol += extra_water;
     return OCEAN;
   } else if(root==stop_node){
     //Otherwise, if we've reached the stop_node, that means we're at the
     //original node's parent. We give it our extra water.
+    std::cerr<<"\tReached the stop node "<<stop_node<<". It has "<<this_dep.water_vol<<" water and we give it "<<extra_water<<" for a total of "<<(this_dep.water_vol + extra_water)<<std::endl;
     this_dep.water_vol += extra_water;
     return stop_node;
   }
@@ -567,16 +585,20 @@ static dh_label_t OverflowInto(
   if(this_dep.water_vol<this_dep.dep_vol){                                              //Can this depression hold any water?
     const double capacity = this_dep.dep_vol - this_dep.water_vol;                      //Yes. How much can it hold?
     if(extra_water<capacity){                                                           //Is it enough to hold all the extra water?
+      std::cerr<<"\tThe dep "<<root<<" has capacity "<<capacity<<" which is enough to hold extra water "<<extra_water<<std::endl;                                                        //Is it enough to hold all the extra water?
       this_dep.water_vol  = std::min(this_dep.water_vol+extra_water,this_dep.dep_vol);  //Yup. But let's be careful about floating-point stuff
       extra_water         = 0;                                                          //No more extra water
     } else {                                                                            //It wasn't enough to hold all the water
+      std::cerr<<"\tThe dep "<<root<<" doesn't have enough room for "<<extra_water<<" extra water, but has "<<capacity<<" capacity";
       this_dep.water_vol = this_dep.dep_vol;                                            //So we fill it all the way.
       extra_water       -= capacity;                                                    //And have that much less extra water to worry about
+      std::cerr<<" filling the dep gives "<<extra_water<<" extra water remaining"<<std::endl;
     }
   }
 
   //If there's no more extra water then call it quits
   if(fp_eq(extra_water,0)){
+    std::cerr<<"\tNo more extra water. Quitting out of overflow."<<std::endl;
     return root;
   }
 
@@ -588,13 +610,20 @@ static dh_label_t OverflowInto(
     auto &odep = deps.at(this_dep.odep);
     if(odep.water_vol<odep.dep_vol){  //Can overflow depression hold more water?
       //Yes. Move the water geographically into that depression's leaf.
+      std::cerr<<"\tOverflow into "<<this_dep.geolink<<" from "<<root<<std::endl;
       return jump_table[root] = OverflowInto(this_dep.geolink, stop_node, deps, jump_table, extra_water);
     } else if(odep.water_vol>odep.dep_vol) {
       //Neighbour is overfull. Since our next stop is the parent, let's take the
       //neighbour's water with us when we go.
+      std::cerr<<"\tNeighbour depression "<<this_dep.odep<<" was overfull, so we take "<<(odep.water_vol-odep.dep_vol)<<" water from it leaving it full.";
       extra_water += odep.water_vol-odep.dep_vol;
       odep.water_vol = odep.dep_vol;
+      std::cerr<<"Extra water now = "<<extra_water<<std::endl;
+    } else {
+      std::cerr<<"\tNeighbour depression "<<this_dep.odep<<" full. "<<odep.water_vol<<" "<<odep.dep_vol<<std::endl;
     }
+  } else {
+    std::cerr<<"\tNo overflow depression."<<std::endl;
   }
 
   //Okay, so the extra water didn't fit into this depression or its overflow
@@ -604,9 +633,12 @@ static dh_label_t OverflowInto(
   //climbing up to the parent.
   auto &pdep = deps.at(this_dep.parent);
   pdep.water_vol += this_dep.water_vol;
+  std::cerr<<"\tNeighbour depression was full. Add "<<this_dep.water_vol<<" water to parent "<<this_dep.parent<<" of "<<root<<std::endl;
   if(this_dep.odep!=NO_VALUE){
+    std::cerr<<"\t\tAnd also add "<<deps.at(this_dep.odep).water_vol<<std::endl;
     pdep.water_vol += deps.at(this_dep.odep).water_vol;
   }
+  std::cerr<<"\tPass extra water "<<extra_water<<" up to parent."<<std::endl;
 
   //THIRD PLACE TO STASH WATER: IN THIS DEPRESSION'S PARENT
   return jump_table[root] = OverflowInto(this_dep.parent, stop_node, deps, jump_table, extra_water);
