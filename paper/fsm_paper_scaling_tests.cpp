@@ -24,13 +24,8 @@ void time_fsm(std::mt19937_64 &gen, const int size){
   Array2D<dh_label_t> labels  (dem.width(),dem.height(), NO_DEP);
   Array2D<flowdir_t>  flowdirs(dem.width(),dem.height(), NO_FLOW);
 
-  for(int y=0;y<dem.height();y++)
-  for(int x=0;x<dem.width(); x++){
-    if(dem.isEdgeCell(x,y)){
-      dem(x,y)    = ocean_level;
-      labels(x,y) = OCEAN;
-    }
-  }
+  dem.setEdges(ocean_level);
+  labels.setEdges(OCEAN);
 
   Timer time_dh, time_fsm, time_both;
 

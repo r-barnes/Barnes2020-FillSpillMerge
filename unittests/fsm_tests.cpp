@@ -111,11 +111,7 @@ TEST_CASE("MoveWaterIntoPits 1"){
   };
 
   Array2D<dh_label_t> label(topo.width(), topo.height(), NO_DEP);
-  for(int y=0;y<topo.height();y++)
-  for(int x=0;x<topo.width();x++){
-    if(topo.isEdgeCell(x,y))
-      label(x,y) = OCEAN;
-  }
+  label.setEdges(OCEAN);
 
   Array2D<flowdir_t> flowdirs(topo.width(), topo.height(), NO_FLOW);
   Array2D<double> wtd(topo.width(), topo.height(), 0);
@@ -191,13 +187,9 @@ void MoveWaterIntoPitsRepeatedly(const int count, const int min_size, const int 
     Array2D<dh_label_t> labels  (dem.width(), dem.height(), NO_DEP );
     Array2D<flowdir_t>  flowdirs(dem.width(), dem.height(), NO_FLOW);
 
-    for(int y=0;y<dem.height();y++)
-    for(int x=0;x<dem.width(); x++){
-      if(dem.isEdgeCell(x,y)){
-        dem(x,y)    = -1;
-        labels(x,y) = OCEAN;
-      }
-    }
+    dem.setEdges(-1);
+    labels.setEdges(OCEAN);
+
     const auto labels_orig = labels;
 
     auto deps1 = GetDepressionHierarchy<double,Topology::D8>(dem, labels, flowdirs);
@@ -426,13 +418,8 @@ void RandomizedHeavyFloodingVsPriorityFlood(const int count, const int min_size,
     Array2D<dh_label_t> labels  (dem.width(), dem.height(), NO_DEP );
     Array2D<flowdir_t>  flowdirs(dem.width(), dem.height(), NO_FLOW);
 
-    for(int y=0;y<dem.height();y++)
-    for(int x=0;x<dem.width(); x++){
-      if(dem.isEdgeCell(x,y)){
-        dem(x,y)    = -1;
-        labels(x,y) = OCEAN;
-      }
-    }
+    dem.setEdges(-1);
+    labels.setEdges(OCEAN);
 
     auto deps = GetDepressionHierarchy<double,Topology::D8>(dem, labels, flowdirs);
 
@@ -485,12 +472,8 @@ void RandomizedTestingOfRepeatedFSM(const int count, const int min_size, const i
     auto do_fsm = [&](){
       //Make sure the edges are identifiable as an ocean
       label.setAll(NO_DEP);
-      for(int y=0;y<dem.height();y++)
-      for(int x=0;x<dem.width();x++)
-        if(dem.isEdgeCell(x,y)){
-          dem(x,y) = -1;
-          label(x,y) = OCEAN;
-        }
+      dem.setEdges(-1);
+      label.setEdges(OCEAN);
 
       auto DH = GetDepressionHierarchy<double,Topology::D8>(dem, label, flowdirs);
       try {
@@ -603,13 +586,8 @@ void RandomizedIncrementalVsBigDump(const int count, const int min_size, const i
 
     //Make sure the edges are identifiable as an ocean
     label.setAll(NO_DEP);
-    for(int y=0;y<dem.height();y++)
-    for(int x=0;x<dem.width();x++){
-      if(dem.isEdgeCell(x,y)){
-        dem(x,y) = -1;
-        label(x,y) = OCEAN;
-      }
-    }
+    dem.setEdges(-1);
+    label.setEdges(OCEAN);
 
     auto DH = GetDepressionHierarchy<double,Topology::D8>(dem, label, flowdirs);
 
