@@ -1,5 +1,4 @@
-#ifndef _df_flow_hpp_
-#define _df_flow_hpp_
+#pragma once
 
 #include <dephier/dephier.hpp>
 #include <richdem/common/Array2D.hpp>
@@ -1087,5 +1086,3 @@ void ResetDH(DepressionHierarchy<elev_t> &deps){
 }
 
 }
-
-#endif
