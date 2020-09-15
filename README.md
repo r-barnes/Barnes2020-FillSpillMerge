@@ -116,3 +116,12 @@ Afterwards, compile:
 ### Additional options
 
  * Use `-DCODE_COVERAGE=ON` to enable code coverage report generation
+
+
+Running Tests
+-------------
+
+Compiling as above will produce an executable `fsm_unittests.exe`. Running this
+will perform all the tests associated with the code. Randomized testing is used
+to cover a wide range of possible inputs both for individual functions (unit
+testing) as well as the entirety of FillSpillMerge in an end-to-end fashion.
