@@ -4,7 +4,7 @@ project (dephier)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-find_package(NetCDF REQUIRED)
+find_package(NetCDF)
 
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
@@ -41,7 +41,7 @@ target_link_libraries(fsm_paper_speed_comparison.exe PRIVATE fsm richdem ${NETCD
 target_compile_features(fsm_paper_speed_comparison.exe PUBLIC cxx_auto_type cxx_std_17)
 
 add_executable(fsm_paper_scaling_tests.exe paper/fsm_paper_scaling_tests.cpp)
-target_link_libraries(fsm_paper_scaling_tests.exe PRIVATE fsm richdem ${NETCDF_LIBRARIES})
+target_link_libraries(fsm_paper_scaling_tests.exe PRIVATE fsm richdem)
 target_compile_features(fsm_paper_scaling_tests.exe PUBLIC cxx_auto_type cxx_std_17)
 
 add_executable(fsm.exe src/main.cpp)
