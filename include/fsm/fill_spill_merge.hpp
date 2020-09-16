@@ -528,12 +528,6 @@ static dh_label_t OverflowInto(
     this_dep.water_vol = this_dep.dep_vol;
   }
 
-  //Jump table ensures that the two traversals collectively take no more than
-  //O(N) time by ensuring that we never revisit a filled depression twice.
-  if(jump_table.count(root)!=0){
-    return jump_table[root] = OverflowInto(jump_table.at(root), stop_node, deps, jump_table, extra_water);
-  }
-
   //TODO: Could simulate water running down flowpath into depression so that wtd
   //fills up more realistically
 
@@ -563,6 +557,12 @@ static dh_label_t OverflowInto(
   //If there's no more extra water then call it quits
   if(fp_eq(extra_water,0)){
     return root;
+  }
+
+  //Jump table ensures that the two traversals collectively take no more than
+  //O(N) time by ensuring that we never revisit a filled depression twice.
+  if(jump_table.count(root)!=0){
+    return jump_table[root] = OverflowInto(jump_table.at(root), stop_node, deps, jump_table, extra_water);
   }
 
   //Okay, so there's extra water and we can't fit it into this depression
