@@ -406,7 +406,7 @@ static void MoveWaterInDepHier(
     //Only if both children are full should their water make its way to this
     //parent and, then, only if water hasn't been passed to the parent by
     //OverflowInto.
-    if(lchild!=NO_VALUE
+    if(lchild!=NO_VALUE //If I am a leaf, then I can't get water from my children
       && deps.at(lchild).water_vol==deps.at(lchild).dep_vol
       && deps.at(rchild).water_vol==deps.at(rchild).dep_vol
       && this_dep.water_vol==0 //If water_vol>0 then children have already overflowed into parent
@@ -588,9 +588,10 @@ static dh_label_t OverflowInto(
   //beneath it, so we add our water and our overflow neighbour's water before
   //climbing up to the parent. Since it's possible our overflow neighbour has
   //already done this, we only add the water we and our neighbour own if the
-  //parent currently has no water in it.
+  //parent currently has no water in it. If we're ocean-linked to our parent we
+  //don't want to do this since we are not contained within our parent.
   auto &pdep = deps.at(this_dep.parent);
-  if(pdep.water_vol==0){
+  if(pdep.water_vol==0 && !this_dep.ocean_parent){
     pdep.water_vol += this_dep.water_vol;
     if(this_dep.odep!=NO_VALUE){
       pdep.water_vol += deps.at(this_dep.odep).water_vol;
