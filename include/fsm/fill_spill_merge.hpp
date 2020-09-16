@@ -483,8 +483,10 @@ static void MoveWaterInDepHier(
 //this destination is then full which means that we only traverse each part of a
 //filled hierarchy once.
 //
-//Note that since we only call this function on the leaf nodes of depressions
-//the jump_table only needs to use leaves as its keys.
+//NOTE: This function is written recursively, but the jump table means it could
+//follow a long string of depressions thereby hitting the stack/recursion limit.
+//A better way of writing this would be to use an iterative stack technique, but
+//this would also be slightly harder to describe, so we leave it for the future.
 //
 //@param root         The depression we're currently considering
 //@param stop_node    When we reach this depression we dump all the excess water
@@ -535,19 +537,14 @@ static dh_label_t OverflowInto(
   //TODO: Could simulate water running down flowpath into depression so that wtd
   //fills up more realistically
 
-  //Determine if we've completed the loop.
-
-  if(root==OCEAN){
-    //If we've reached the ocean, then we've made a complete loop and it's time
-    //to stop: there's nowhere higher in the depression hierarchy. Excess water
-    //is disregarded.
-    deps.at(OCEAN).water_vol += extra_water;
-    return OCEAN;
-  } else if(root==stop_node){
+  //Determine if we've completed the loop. That'll happen either when we get to
+  //the stop_node or the OCEAN. We can reach the OCEAN without reaching the
+  //stop_node because the jump table can allow us to skip the stop_node.
+  if(root==stop_node || root==OCEAN){
     //Otherwise, if we've reached the stop_node, that means we're at the
     //original node's parent. We give it our extra water.
     this_dep.water_vol += extra_water;
-    return stop_node;
+    return root;
   }
 
   //FIRST PLACE TO STASH WATER: IN THIS DEPRESSION
