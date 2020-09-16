@@ -1,5 +1,4 @@
 #include <fsm/fill_spill_merge.hpp>
-#include <fsm/netcdf.hpp>
 
 #include <richdem/common/Array2D.hpp>
 
@@ -55,7 +54,7 @@ int main(int argc, char **argv){
     if(!topo.isNoData(i))
       wtd(i) += topo(i);
 
-  SaveAsNetCDF(wtd,out_name+"-flooded.nc","value");
+  wtd.saveGDAL(out_name+"-flooded.nc");
 
   timer_overall.stop();
   std::cout<<"t Total time  = "<<timer_overall.accumulated()<<" s"<<std::endl;

@@ -4,8 +4,6 @@ project (dephier)
 
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
 
-find_package(NetCDF)
-
 find_program(CCACHE_FOUND ccache)
 if(CCACHE_FOUND)
     set_property(GLOBAL PROPERTY RULE_LAUNCH_COMPILE ccache)
@@ -33,11 +31,11 @@ endif()
 include_directories(submodules)
 
 add_executable(fsm_paper_tests.exe paper/fsm_paper_tests.cpp)
-target_link_libraries(fsm_paper_tests.exe PRIVATE fsm richdem ${NETCDF_LIBRARIES})
+target_link_libraries(fsm_paper_tests.exe PRIVATE fsm richdem)
 target_compile_features(fsm_paper_tests.exe PUBLIC cxx_auto_type cxx_std_17)
 
 add_executable(fsm_paper_speed_comparison.exe paper/fsm_paper_speed_comparison.cpp)
-target_link_libraries(fsm_paper_speed_comparison.exe PRIVATE fsm richdem ${NETCDF_LIBRARIES})
+target_link_libraries(fsm_paper_speed_comparison.exe PRIVATE fsm richdem)
 target_compile_features(fsm_paper_speed_comparison.exe PUBLIC cxx_auto_type cxx_std_17)
 
 add_executable(fsm_paper_scaling_tests.exe paper/fsm_paper_scaling_tests.cpp)
@@ -45,7 +43,7 @@ target_link_libraries(fsm_paper_scaling_tests.exe PRIVATE fsm richdem)
 target_compile_features(fsm_paper_scaling_tests.exe PUBLIC cxx_auto_type cxx_std_17)
 
 add_executable(fsm.exe src/main.cpp)
-target_link_libraries(fsm.exe PRIVATE fsm richdem ${NETCDF_LIBRARIES})
+target_link_libraries(fsm.exe PRIVATE fsm richdem)
 target_compile_features(fsm.exe PUBLIC cxx_auto_type cxx_std_17)
 
 
@@ -53,7 +51,7 @@ add_executable(fsm_unittests.exe
   unittests/test_main.cpp
   unittests/fsm_tests.cpp
 )
-target_link_libraries(fsm_unittests.exe PRIVATE fsm richdem ${NETCDF_LIBRARIES})
+target_link_libraries(fsm_unittests.exe PRIVATE fsm richdem)
 target_compile_features(fsm_unittests.exe PUBLIC cxx_auto_type cxx_std_17)
 
 option(CODE_COVERAGE "Enable coverage reporting" OFF)
@@ -79,7 +77,7 @@ endif()
 add_executable(test_temp.exe
   unittests/test_temp.cpp
 )
-target_link_libraries(test_temp.exe PRIVATE fsm richdem ${NETCDF_LIBRARIES})
+target_link_libraries(test_temp.exe PRIVATE fsm richdem)
 target_compile_features(test_temp.exe PUBLIC cxx_auto_type cxx_std_17)
 
 

@@ -1,7 +1,6 @@
 #include "priority_flood.hpp"
 
 #include <fsm/fill_spill_merge.hpp>
-#include <fsm/netcdf.hpp>
 
 #include <richdem/common/Array2D.hpp>
 
@@ -69,9 +68,9 @@ int main(int argc, char **argv){
     if(!topo.isNoData(i))
       wtd(i) += topo(i);
 
-  SaveAsNetCDF(wtd,out_name+"-flooded.nc","value");
+  wtd.saveGDAL(out_name+"-flooded.nc");
   rd::PriorityFlood_Barnes2014_OceanInit<rd::Topology::D8>(topo, ocean_level);
-  SaveAsNetCDF(topo,out_name+"-filled.nc","value");
+  topo.saveGDAL(out_name+"-filled.nc");
 
   double max_diff = 0;
   unsigned count  = 0;
@@ -84,7 +83,6 @@ int main(int argc, char **argv){
     count++;
     avg_diff+=(diff-avg_diff)/count;
   }
-  // SaveAsNetCDF(diff,out_name+"-diff.nc","value");
 
   std::cout<<"m Max diff = "<<std::sqrt(max_diff)<<std::endl;
   std::cout<<"m Avg diff = "<<avg_diff<<std::endl;
