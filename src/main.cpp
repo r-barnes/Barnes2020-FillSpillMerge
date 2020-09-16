@@ -70,14 +70,14 @@ int main(int argc, char **argv){
   timer_io.start();
 
   //Output the water table depth
-  wtd.saveGDAL(out_name+"-wtd.nc");
+  wtd.saveGDAL(out_name+"-wtd.tif");
 
   for(unsigned int i=0;i<topo.size();i++)
     if(!topo.isNoData(i))
       wtd(i) += topo(i);
 
   //Output the new height of the hydraulic surface
-  wtd.saveGDAL(out_name+"-hydraulic-surface-height.nc");
+  wtd.saveGDAL(out_name+"-hydrologic-surface-height.tif");
 
   timer_io.stop();
 
