@@ -428,19 +428,8 @@ static void MoveWaterInDepHier(
   //metadepressions whose children might need water spread, but which will not
   //receive any spreading themselves.
 
-  //We are overflowing the depression
-  if(this_dep.odep == OCEAN){
-    //If a depression overflows directly into an ocean then its odep is the
-    //ocean and so is its parent.
-
-    //The current depression's outlet is into the ocean. Since the ocean can
-    //absorb an infinite amount of water without changing its water volume, we
-    //simply set the amount of water contained in the current depression to be
-    //either its water_vol (the depression doesn't overflow) or equal to its
-    //depression volume (the excess water is thrown into the ocean, which is
-    //unaffected).
-    this_dep.water_vol = std::min(this_dep.water_vol,this_dep.dep_vol);
-  } else if(this_dep.water_vol>this_dep.dep_vol) {
+  //Is the depression overflowing?
+  if(this_dep.water_vol>this_dep.dep_vol) {
     //The neighbouring depression is not the ocean and this depression is
     //overflowing (therefore, all of its children are full)
     assert(this_dep.lchild==NO_VALUE || deps.at(this_dep.lchild).water_vol==deps.at(this_dep.lchild).dep_vol);
