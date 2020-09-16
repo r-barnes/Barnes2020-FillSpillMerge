@@ -50,7 +50,7 @@ int main(){
   std::mt19937_64 gen;
 
   //Sizes to test at
-  const std::vector<int> sizes = {10,50,100,500,1000,5000,10000,50000};
+  const std::vector<int> sizes = {10,50,100,500,1000,5000,10000,15000,20000,25000,30000,35000,40000,45000,50000};
 
   //Number of times to run each test
   const int reps = 3;
