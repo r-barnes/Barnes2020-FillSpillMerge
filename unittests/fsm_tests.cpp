@@ -179,8 +179,8 @@ void MoveWaterIntoPitsRepeatedly(const int count, const int min_size, const int 
 
     #pragma omp critical
     {
-      dem = random_integer_terrain(gen, min_size, max_size);
       oss<<gen;
+      dem = random_integer_terrain(gen, min_size, max_size);
       std::cerr<<"MoveWaterIntoPits Repeatedly #"<<i<<std::endl;
     }
 
@@ -410,8 +410,8 @@ void RandomizedHeavyFloodingVsPriorityFlood(const int count, const int min_size,
 
     #pragma omp critical
     {
-      dem = random_terrain(gen, min_size, max_size);
       oss<<gen;
+      dem = random_terrain(gen, min_size, max_size);
       std::cerr<<"Randomized Heavy Flooding vs Priority-Flood #"<<i<<std::endl;
     }
 
@@ -460,8 +460,8 @@ void RandomizedTestingOfRepeatedFSM(const int count, const int min_size, const i
     Array2D<double> dem;
     #pragma omp critical
     {
-      dem = random_integer_terrain(gen, min_size, max_size);
       oss<<gen;
+      dem = random_integer_terrain(gen, min_size, max_size);
       std::cerr<<"Randomized Testing of Repeated FSM #"<<i<<std::endl;
     }
 
@@ -575,8 +575,8 @@ void RandomizedIncrementalVsBigDump(const int count, const int min_size, const i
     Array2D<double> dem;
     #pragma omp critical
     {
-      dem = random_integer_terrain(gen, min_size, max_size);
       oss<<gen;
+      dem = random_integer_terrain(gen, min_size, max_size);
       std::cerr<<"Randomized Incremental vs Big Dump #"<<i<<std::endl;
     }
 
