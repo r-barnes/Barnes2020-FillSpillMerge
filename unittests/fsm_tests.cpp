@@ -9,6 +9,16 @@
 using namespace richdem;
 using namespace richdem::dephier;
 
+#ifdef CODE_COVERAGE
+  #pragma message "FSM is using a small number of test cases for code coverage estimation. Disable code coverage to enable more extensive tests."
+  const int number_of_small_tests = 50;
+  const int number_of_large_tests = 5;
+#else
+  #pragma message "FSM is using a large number of test cases to judge correctness. Enabling code coverage will reduce the number of test cases used."
+  const int number_of_small_tests = 6000;
+  const int number_of_large_tests = 500;
+#endif
+
 template<class T>
 double MaxArrayDiff(const Array2D<T> &a, const Array2D<T> &b){
   double max_diff = 0;
@@ -218,8 +228,8 @@ void MoveWaterIntoPitsRepeatedly(const int count, const int min_size, const int 
 }
 
 TEST_CASE("MoveWaterIntoPits Repeatedly"){
-  MoveWaterIntoPitsRepeatedly(6000,  10,  30);
-  MoveWaterIntoPitsRepeatedly( 500, 100, 300);
+  MoveWaterIntoPitsRepeatedly(number_of_small_tests,  10,  30);
+  MoveWaterIntoPitsRepeatedly(number_of_large_tests, 100, 300);
 }
 
 
@@ -446,8 +456,8 @@ void RandomizedHeavyFloodingVsPriorityFlood(const int count, const int min_size,
 }
 
 TEST_CASE("Randomized Heavy Flooding vs Priority-Flood"){
-  RandomizedHeavyFloodingVsPriorityFlood(6000,  10,  30);
-  RandomizedHeavyFloodingVsPriorityFlood( 500, 100, 300);
+  RandomizedHeavyFloodingVsPriorityFlood(number_of_small_tests,  10,  30);
+  RandomizedHeavyFloodingVsPriorityFlood(number_of_large_tests, 100, 300);
 }
 
 
@@ -498,8 +508,8 @@ void RandomizedTestingOfRepeatedFSM(const int count, const int min_size, const i
 }
 
 TEST_CASE("Randomized Testing of Repeated FSM"){
-  RandomizedTestingOfRepeatedFSM(6000,  10,  30);
-  RandomizedTestingOfRepeatedFSM( 500, 100, 300);
+  RandomizedTestingOfRepeatedFSM(number_of_small_tests,  10,  30);
+  RandomizedTestingOfRepeatedFSM(number_of_large_tests, 100, 300);
 }
 
 
@@ -611,8 +621,8 @@ void RandomizedIncrementalVsBigDump(const int count, const int min_size, const i
 }
 
 TEST_CASE("Randomized Testing of Incremental FSM vs Big Dump"){
-  RandomizedIncrementalVsBigDump(6000,  10,  30);
-  RandomizedIncrementalVsBigDump( 500, 100, 300);
+  RandomizedIncrementalVsBigDump(number_of_small_tests,  10,  30);
+  RandomizedIncrementalVsBigDump(number_of_large_tests, 100, 300);
 }
 
 
@@ -657,6 +667,6 @@ void RandomizedMassConservation(const int count, const int min_size, const int m
 }
 
 TEST_CASE("RandomizedMassConservation"){
-  RandomizedMassConservation(6000,  10,  30);
-  RandomizedMassConservation( 500, 100, 300);
+  RandomizedMassConservation(number_of_small_tests,  10,  30);
+  RandomizedMassConservation(number_of_large_tests, 100, 300);
 }
