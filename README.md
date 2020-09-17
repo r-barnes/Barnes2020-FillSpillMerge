@@ -54,6 +54,9 @@ The following compilers are known to work: GCC7.5.0, GCC8.4.0, GCC9.3.0
 
 The following compilers are known to be too old: GCC5.4.0
 
+Although GDAL is not required to use the library, it is needed to run the
+example program.
+
 Install the prerequisites
 
 ### Linux
