@@ -614,3 +614,49 @@ TEST_CASE("Randomized Testing of Incremental FSM vs Big Dump"){
   RandomizedIncrementalVsBigDump(6000,  10,  30);
   RandomizedIncrementalVsBigDump( 500, 100, 300);
 }
+
+
+
+void RandomizedMassConservation(const int count, const int min_size, const int max_size){
+  #pragma omp parallel for
+  for(int i=0;i<count;i++){
+    std::stringstream oss;
+    std::uniform_real_distribution<double> surface_amount_dist(0,1);
+
+    Array2D<double> dem;
+    double surface_water_amount;
+    #pragma omp critical
+    {
+      oss<<gen;
+      dem = random_integer_terrain(gen, min_size, max_size);
+      surface_water_amount = surface_amount_dist(gen);
+      std::cerr<<"RandomizedMassConservation #"<<i<<std::endl;
+    }
+
+    Array2D<dh_label_t> label   (dem.width(), dem.height(), NO_DEP);
+    Array2D<flowdir_t>  flowdirs(dem.width(), dem.height(), NO_FLOW);
+    Array2D<double>     wtd     (dem.width(), dem.height(), surface_water_amount);
+
+    //Make sure the edges are identifiable as an ocean
+    dem.setEdges(-1);
+    label.setEdges(OCEAN);
+
+    auto DH = GetDepressionHierarchy<double,Topology::D8>(dem, label, flowdirs);
+
+    FillSpillMerge(dem, label, flowdirs, DH, wtd);
+
+    double sum = 0;
+    for(auto i=wtd.i0();i<wtd.size();i++){
+      sum += wtd(i);
+    }
+
+    sum += DH.at(OCEAN).water_vol;
+
+    REQUIRE_MESSAGE(sum==doctest::Approx(surface_water_amount*wtd.size()) , "Randomized Testing of Repeated FSM failed with width = "+std::to_string(dem.width())+" height = "+std::to_string(dem.height())+" state = " + oss.str());
+  }
+}
+
+TEST_CASE("RandomizedMassConservation"){
+  RandomizedMassConservation(6000,  10,  30);
+  RandomizedMassConservation( 500, 100, 300);
+}
