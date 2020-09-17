@@ -1,0 +1,20 @@
+#!/bin/bash
+#SBATCH --job-name="fsm_scaling_tests"
+#SBATCH --output="fsm_scaling_tests.%j.%N.out"
+#SBATCH --partition=large-shared
+#SBATCH --mem=1200G
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=16
+#SBATCH --export=ALL
+#SBATCH -t 2:00:00
+
+#Generate with: CXX=/share/apps/compute/gcc-7.2.0/bin/g++ CC=/share/apps/compute/gcc-7.2.0/bin/gcc cmake -DNETCDF_LIBRARIES=/opt/netcdf/4.6.1/gnu/serial/lib -DNETCDF_INCLUDES=/opt/netcdf/4.6.1/gnu/serial/include -DGDAL_INCLUDE_DIR=/opt/gdal/include -DCMAKE_BUILD_TYPE=Release ..
+#make fsm_paper_scaling_tests.exe
+
+module load gnu/7.2.0
+module load netcdf
+module load gdal
+
+export LD_LIBRARY_PATH="/share/apps/compute/gcc-7.2.0/lib64/:$LD_LIBRARY_PATH"
+
+/home/rbarnes1/Barnes2020-FillSpillMerge/build/fsm_paper_scaling_tests.exe
