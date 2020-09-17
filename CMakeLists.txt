@@ -34,7 +34,7 @@ if(USE_GDAL AND GDAL_FOUND)
   target_link_libraries(fsm.exe PRIVATE fsm richdem)
   target_compile_features(fsm.exe PUBLIC cxx_auto_type cxx_std_17)
 else()
-  message(WARNING "GDAL is needed to build some of the FSM performance tests and example programs!")
+  message(WARNING "GDAL is needed to build some of the FSM performance tests and example programs; it is not needed to use the FSM library in another project.")
 endif()
 
 add_executable(fsm_paper_scaling_tests.exe paper/fsm_paper_scaling_tests.cpp)

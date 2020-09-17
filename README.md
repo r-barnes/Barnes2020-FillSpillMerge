@@ -100,7 +100,7 @@ Afterwards, compile:
 
     mkdir build
     cd build
-    cmake -DCMAKE_BUILD_TYPE=Release ..
+    cmake -DCMAKE_BUILD_TYPE=Release -DUSE_GDAL ..
     make -j 4 # Set to number of CPUs for a faster compilation (4 here)
 
 ### Mac
@@ -110,12 +110,15 @@ Afterwards, compile:
     # Be sure to repoint the versioning in the following as necessary:
     cmake -D CMAKE_C_COMPILER="/usr/local/Cellar/llvm/10.0.0_3/bin/clang" \
           -D CMAKE_CXX_COMPILER="/usr/local/Cellar/llvm/10.0.0_3/bin/clang++" \
+          -DUSE_GDAL
           -DCMAKE_BUILD_TYPE=Release ..
     make -j 4 # Set to number of CPUs for a faster compilation (4 here)
 
 ### Additional options
 
- * Use `-DCODE_COVERAGE=ON` to enable code coverage report generation
+ * Use `-DCODE_COVERAGE=ON` to enable code coverage report generation.
+   When doing a build this will run all the tests and generate a coverage
+   report.
 
 
 
