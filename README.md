@@ -103,7 +103,7 @@ Afterwards, compile:
 
     mkdir build
     cd build
-    cmake -DCMAKE_BUILD_TYPE=Release -DUSE_GDAL ..
+    cmake -DCMAKE_BUILD_TYPE=Release -DUSE_GDAL=ON ..
     make -j 4 # Set to number of CPUs for a faster compilation (4 here)
 
 ### Mac
