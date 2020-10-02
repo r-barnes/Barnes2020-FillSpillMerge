@@ -914,6 +914,8 @@ void FillDepressions(
       if(dep_labels.count(label(ni))==0 && ni!=out_cell)
         continue;
 
+      if(topo(nx,ny) > topo(out_cell))  //We may not add any cells higher than the out_cell. Without this check, we would sometimes look at higher cells before checking out_cell for the second time.
+        continue;
       //Ocean cells may be found at the edge of a depression. They might get
       //added to this list even if there are other, lower, cells within the
       //depression which have not yet been explored. This happens when a flat
