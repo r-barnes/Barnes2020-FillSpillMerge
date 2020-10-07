@@ -11,9 +11,9 @@ namespace rd = richdem;
 namespace dh = richdem::dephier;
 
 int main(int argc, char **argv){
-  if(argc!=5){
+  if(argc!=6){
     std::cout<<"Pours a given amount of water onto every cell of a landscape and determines where it all ends up\n"<<std::endl;
-    std::cout<<"Syntax: "<<argv[0]<<" <Input> <Output> <Surface Water Level> <Ocean Level>"<<std::endl;
+    std::cout<<"Syntax: "<<argv[0]<<" <Topography input> <Output> <Surface Water Level, put '0' if using an input file> <Surface water input file, put 'None' if not using> <Ocean Level>"<<std::endl;
     std::cout<<"Ocean cells are detected at the DEM perimeter and added from there"<<std::endl;
     return -1;
   }
@@ -21,12 +21,14 @@ int main(int argc, char **argv){
   const std::string in_name          = argv[1];
   const std::string out_name         = argv[2];
   const double      surf_water_level = std::stod(argv[3]);
-  const double      ocean_level      = std::stod(argv[4]);
+  const std::string runoff_name      = argv[4];
+  const double      ocean_level      = std::stod(argv[5]);
 
   std::cout<<"m Input DEM           = "<<argv[1]<<std::endl;
   std::cout<<"m Output prefix       = "<<argv[2]<<std::endl;
   std::cout<<"m Surface water level = "<<argv[3]<<std::endl;
-  std::cout<<"m Ocean level         = "<<argv[4]<<std::endl;
+  std::cout<<"m Surface water file  = "<<argv[4]<<std::endl;
+  std::cout<<"m Ocean level         = "<<argv[5]<<std::endl;
 
   rd::Timer timer_io;
   timer_io.start();
@@ -37,7 +39,14 @@ int main(int argc, char **argv){
   std::cout<<"m Data height = "<<topo.height()<<std::endl;
   std::cout<<"m Data cells  = "<<topo.numDataCells()<<std::endl;
 
-  rd::Array2D<double>          wtd     (topo.width(), topo.height(), surf_water_level); //All cells have some water
+
+  rd::Array2D<double>   wtd     (topo.width(), topo.height(), surf_water_level); //All cells have some water
+  if(surf_water_level  == 0 ){
+    rd::Array2D<double> temp_wtd(runoff_name);
+    wtd = temp_wtd;
+  }
+
+
   rd::Array2D<dh::dh_label_t> label   (topo.width(), topo.height(), dh::NO_DEP );      //No cells are part of a depression
   rd::Array2D<rd::flowdir_t>  flowdirs(topo.width(), topo.height(), rd::NO_FLOW);      //No cells flow anywhere
 
