@@ -1,7 +1,9 @@
 #include <fsm/fill_spill_merge.hpp>
+
 #include <richdem/common/Array2D.hpp>
-#include <richdem/misc/misc_methods.hpp>
 #include <richdem/common/gdal.hpp>
+#include <richdem/misc/misc_methods.hpp>
+#include <richdem/ui/cli_options.hpp>
 
 #include <iostream>
 #include <string>
@@ -11,41 +13,46 @@ namespace rd = richdem;
 namespace dh = richdem::dephier;
 
 int main(int argc, char **argv){
-  if(argc!=6){
-    std::cout<<"Pours a given amount of water onto every cell of a landscape and determines where it all ends up\n"<<std::endl;
-    std::cout<<"Syntax: "<<argv[0]<<" <Topography input> <Output> <Surface Water Level, put '0' if using an input file> <Surface water input file, put 'None' if not using> <Ocean Level>"<<std::endl;
-    std::cout<<"Ocean cells are detected at the DEM perimeter and added from there"<<std::endl;
-    return -1;
-  }
+  CLI::App app("Fill-Spill-Merge Example Program");
 
-  const std::string in_name          = argv[1];
-  const std::string out_name         = argv[2];
-  const double      surf_water_level = std::stod(argv[3]);
-  const std::string runoff_name      = argv[4];
-  const double      ocean_level      = std::stod(argv[5]);
+  std::string topography_filename;
+  std::string output_prefix;
+  double      surface_water_level = std::numeric_limits<double>::quiet_NaN();
+  std::string surface_water_filename;
+  double      ocean_level;
 
-  std::cout<<"m Input DEM           = "<<argv[1]<<std::endl;
-  std::cout<<"m Output prefix       = "<<argv[2]<<std::endl;
-  std::cout<<"m Surface water level = "<<argv[3]<<std::endl;
-  std::cout<<"m Surface water file  = "<<argv[4]<<std::endl;
-  std::cout<<"m Ocean level         = "<<argv[5]<<std::endl;
+  size_t num;
+  size_t len;
+  app.add_option("topography", topography_filename, "Topography to run FSM on")->required();
+  app.add_option("output",     output_prefix,       "Path of GeoTiff output file")->required();
+  const auto swl_ptr = app.add_option("--swl", surface_water_level, "Surface water level as a numeric constant");
+  app.add_option("--swf", surface_water_filename, "File containing surface water levels")->excludes(swl_ptr);
+  app.add_option("ocean_level",         ocean_level, "Elevation of the ocean")->required();
+
+  CLI11_PARSE(app, argc, argv);
+
+  std::cout<<"m Input DEM           = "<<topography_filename   <<std::endl;
+  std::cout<<"m Output prefix       = "<<output_prefix         <<std::endl;
+  std::cout<<"m Surface water level = "<<surface_water_level   <<std::endl;
+  std::cout<<"m Surface water file  = "<<surface_water_filename<<std::endl;
+  std::cout<<"m Ocean level         = "<<ocean_level           <<std::endl;
 
   rd::Timer timer_io;
   timer_io.start();
-  rd::Array2D<double> topo(in_name);
+  rd::Array2D<double> topo(topography_filename);
   timer_io.stop();
 
   std::cout<<"m Data width  = "<<topo.width ()<<std::endl;
   std::cout<<"m Data height = "<<topo.height()<<std::endl;
   std::cout<<"m Data cells  = "<<topo.numDataCells()<<std::endl;
 
-
-  rd::Array2D<double>   wtd     (topo.width(), topo.height(), surf_water_level); //All cells have some water
-  if(surf_water_level  == 0 ){
-    rd::Array2D<double> temp_wtd(runoff_name);
-    wtd = temp_wtd;
+  rd::Array2D<double> wtd;
+  if(surface_water_filename.empty()){
+    //All cells have the same amount of water
+    wtd.resize(topo.width(), topo.height(), surface_water_level);
+  } else {
+    wtd = rd::Array2D<double>(surface_water_filename);
   }
-
 
   rd::Array2D<dh::dh_label_t> label   (topo.width(), topo.height(), dh::NO_DEP );      //No cells are part of a depression
   rd::Array2D<rd::flowdir_t>  flowdirs(topo.width(), topo.height(), rd::NO_FLOW);      //No cells flow anywhere
@@ -79,14 +86,14 @@ int main(int argc, char **argv){
   timer_io.start();
 
   //Output the water table depth
-  wtd.saveGDAL(out_name+"-wtd.tif");
+  wtd.saveGDAL(output_prefix+"-wtd.tif");
 
   for(unsigned int i=0;i<topo.size();i++)
     if(!topo.isNoData(i))
       wtd(i) += topo(i);
 
   //Output the new height of the hydraulic surface
-  wtd.saveGDAL(out_name+"-hydrologic-surface-height.tif");
+  wtd.saveGDAL(output_prefix+"-hydrologic-surface-height.tif");
 
   timer_io.stop();
 
