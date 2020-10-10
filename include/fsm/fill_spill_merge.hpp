@@ -863,7 +863,7 @@ void FillDepressions(
     //   sufficient topographic volume to hold all the water. In this case, the
     //   cell's water table is left unaffected.
 
-    if(fp_le(water_vol,current_volume-wtd(c.x,c.y))){
+    if(( fp_le(water_vol,current_volume-wtd(c.x,c.y)) && dep_labels.count(label(c.x,c.y))==1) || fp_le(water_vol, current_volume)){
       //The current scope of the depression plus the water storage capacity of
       //this cell is sufficient to store all of the water. We'll stop adding
       //cells and fill things now.
