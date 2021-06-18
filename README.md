@@ -1,8 +1,10 @@
+![Zenodo Badge](https://zenodo.org/badge/DOI/10.5281/zenodo.3755142.svg)
+
 Fill-Spill-Merge
 ===========================================
 
 **Title of Manuscript**:
- * Computing water flow through complex landscapes, Part 3: Fill-Spill-Merge: Flow routing in depression hierarchies (doi: TODO)
+ * Computing water flow through complex landscapes, Part 3: Fill-Spill-Merge: Flow routing in depression hierarchies (doi: [10.5194/esurf-9-105-2021](https://dx.doi.org/10.5194/esurf-9-105-2021))
 
 **Previous Manuscripts**:
  * Computing water flow through complex landscapes, Part 2: Finding hierarchies in depressions and morphological segmentations (doi: [10.5194/esurf-2019-34](https://doi.org/10.5194/esurf-2019-34))
