@@ -182,8 +182,8 @@ void FillSpillMerge(
   for(int d=1;d<(int)deps.size();d++){
     const auto &dep = deps.at(d);
     assert(dep.water_vol==0 || dep.water_vol<=dep.dep_vol);
-    assert(dep.water_vol==0 || (dep.lchild==NO_VALUE && dep.rchild==NO_VALUE) || (dep.lchild!=NO_VALUE && deps.at(dep.lchild).water_vol<dep.water_vol));
-    assert(dep.water_vol==0 || (dep.lchild==NO_VALUE && dep.rchild==NO_VALUE) || (dep.rchild!=NO_VALUE && deps.at(dep.rchild).water_vol<dep.water_vol));
+    assert(dep.water_vol==0 || (dep.lchild==NO_VALUE && dep.rchild==NO_VALUE) || (dep.lchild!=NO_VALUE && fp_le(deps.at(dep.lchild).water_vol,dep.water_vol)));
+    assert(dep.water_vol==0 || (dep.lchild==NO_VALUE && dep.rchild==NO_VALUE) || (dep.rchild!=NO_VALUE && fp_le(deps.at(dep.rchild).water_vol,dep.water_vol)));
   }
 
   RDLOG_PROGRESS<<"p Finding filled...";
