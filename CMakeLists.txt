@@ -1,4 +1,4 @@
-cmake_minimum_required (VERSION 3.9)
+cmake_minimum_required(VERSION 3.9)
 
 project(fsm)
 
@@ -15,12 +15,13 @@ endif(CCACHE_FOUND)
 set(RICHDEM_NO_PROGRESS ON CACHE BOOL "Whether or not to show RichDEM progress bars")
 add_subdirectory(submodules/dephier EXCLUDE_FROM_ALL)
 
+set(RICHDEM_LOGGING ON CACHE BOOL "Switch on/off logging in RichDEM")
+
 add_library(fsm INTERFACE)
 target_include_directories(fsm INTERFACE include/)
 target_link_libraries(fsm INTERFACE dephier)
 
 # include_directories(submodules)
-
 if(USE_GDAL AND GDAL_FOUND)
   add_executable(fsm_paper_tests.exe paper/fsm_paper_tests.cpp)
   target_link_libraries(fsm_paper_tests.exe PRIVATE fsm richdem)
