@@ -451,7 +451,7 @@ void RandomizedHeavyFloodingVsPriorityFlood(const int count, const int min_size,
     auto comparison_dem = dem;
     PriorityFlood_Zhou2016(comparison_dem);
 
-    CHECK_MESSAGE(MaxArrayDiff(comparison_dem,dem)<1e-6, "Randomized Heavy Flooding vs Priority-Flood failed with width = "+std::to_string(dem.width())+" height = "+std::to_string(dem.height())+" state = " + oss.str());
+    CHECK_MESSAGE(MaxArrayDiff(comparison_dem,dem)<1e-6, ("Randomized Heavy Flooding vs Priority-Flood failed with width = "+std::to_string(dem.width())+" height = "+std::to_string(dem.height())+" state = " + oss.str()));
   }
 }
 
@@ -503,7 +503,7 @@ void RandomizedTestingOfRepeatedFSM(const int count, const int min_size, const i
     //Distribute it a second time
     do_fsm();
 
-    CHECK_MESSAGE(MaxArrayDiff(first_wtd,wtd)<1e-6, "Randomized Testing of Repeated FSM failed with width = "+std::to_string(dem.width())+" height = "+std::to_string(dem.height())+" state = " + oss.str());
+    CHECK_MESSAGE(MaxArrayDiff(first_wtd,wtd)<1e-6, ("Randomized Testing of Repeated FSM failed with width = "+std::to_string(dem.width())+" height = "+std::to_string(dem.height())+" state = " + oss.str()));
   }
 }
 
@@ -616,7 +616,7 @@ void RandomizedIncrementalVsBigDump(const int count, const int min_size, const i
     }
 
 
-    REQUIRE_MESSAGE(MaxArrayDiff(big_dump_wtd,wtd)<1e-6, "Randomized Testing of Repeated FSM failed with width = "+std::to_string(dem.width())+" height = "+std::to_string(dem.height())+" state = " + oss.str());
+    REQUIRE_MESSAGE(MaxArrayDiff(big_dump_wtd,wtd)<1e-6, ("Randomized Testing of Repeated FSM failed with width = "+std::to_string(dem.width())+" height = "+std::to_string(dem.height())+" state = " + oss.str()));
   }
 }
 
@@ -662,7 +662,7 @@ void RandomizedMassConservation(const int count, const int min_size, const int m
 
     sum += DH.at(OCEAN).water_vol;
 
-    REQUIRE_MESSAGE(sum==doctest::Approx(surface_water_amount*wtd.size()) , "Randomized Testing of Repeated FSM failed with width = "+std::to_string(dem.width())+" height = "+std::to_string(dem.height())+" state = " + oss.str());
+    REQUIRE_MESSAGE(sum==doctest::Approx(surface_water_amount*wtd.size()) , ("Randomized Testing of Repeated FSM failed with width = "+std::to_string(dem.width())+" height = "+std::to_string(dem.height())+" state = " + oss.str()));
   }
 }
 
