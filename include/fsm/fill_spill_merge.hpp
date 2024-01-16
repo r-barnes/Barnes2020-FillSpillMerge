@@ -105,7 +105,7 @@ void BackfillDepression(
 template<class wtd_t>
 double DetermineWaterLevel(
   wtd_t &sill_wtd,
-  const double water_vol,
+  double water_vol,
   const double sill_elevation,
   const size_t cells_to_spread_across,
   const double total_elevation
