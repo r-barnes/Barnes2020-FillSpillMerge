@@ -115,7 +115,7 @@ Afterwards, compile:
     # Be sure to repoint the versioning in the following as necessary:
     cmake -D CMAKE_C_COMPILER="/usr/local/Cellar/llvm/10.0.0_3/bin/clang" \
           -D CMAKE_CXX_COMPILER="/usr/local/Cellar/llvm/10.0.0_3/bin/clang++" \
-          -DUSE_GDAL
+          -DUSE_GDAL=ON
           -DCMAKE_BUILD_TYPE=Release ..
     make -j 4 # Set to number of CPUs for a faster compilation (4 here)
 
